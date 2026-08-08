@@ -1,0 +1,150 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: products
+    // Document ID: productId (string)
+    // Fields:
+    //   - id: number (required)
+    //   - name: string (required)
+    //   - nameEnglish: string (required)
+    //   - category: string (required)
+    //   - price: number (required)
+    //   - unit: string (required)
+    //   - image: string (required)
+    //   - description: string (required)
+    //   - rating: number (required)
+    //   - discountPercent: number (optional)
+    //   - discountStart: string (optional, ISO 8601)
+    //   - discountEnd: string (optional, ISO 8601)
+    //
+    // Collection: users
+    // Document ID: userId (string, matches auth.uid)
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - role: string (required, 'admin' | 'user')
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+          (request.auth.token.email == "ahmedmuneeb036@gmail.com"));
+    }
+
+    function isValidEmail(email) {
+      return email is string &&
+        email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidProduct(data) {
+      // Basic type and range validation
+      return (data.id is number) &&
+             (data.name is string && data.name.size() > 0 && data.name.size() < 255) &&
+             (data.nameEnglish is string && data.nameEnglish.size() > 0 && data.nameEnglish.size() < 255) &&
+             (data.category is string) &&
+             (data.price is number && data.price >= 0) &&
+             (data.unit is string) &&
+             (data.image is string) &&
+             (data.description is string && data.description.size() < 10000) &&
+             (data.rating is number && data.rating >= 0 && data.rating <= 5) &&
+             (!('discountPercent' in data) || data.discountPercent == null || (data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 100)) &&
+             (!('discountStart' in data) || data.discountStart == null || data.discountStart == "" || isValidDateString(data.discountStart)) &&
+             (!('discountEnd' in data) || data.discountEnd == null || data.discountEnd == "" || isValidDateString(data.discountEnd));
+    }
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'role']) &&
+             data.uid is string && data.uid == request.auth.uid &&
+             data.email is string && isValidEmail(data.email) &&
+             data.role in ['admin', 'user'];
+    }
+
+    function isValidNewsletter(data) {
+      return hasRequiredFields(['email', 'subscribedAt', 'source']) &&
+             data.email is string && data.email.matches("^[a-zA-Z0-9._%+-]+@gmail\\.com$") &&
+             data.source == 'footer_newsletter' &&
+             data.subscribedAt == request.time;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /products/{productId} {
+      // Products are publicly readable
+      allow read: if true;
+      
+      // Allow creation if valid product schema
+      allow create: if isValidProduct(request.resource.data) && hasRequiredFields(['id', 'name', 'nameEnglish', 'category', 'price', 'unit', 'image', 'description', 'rating']);
+      
+      // Allow update if resulting document is valid
+      // We are more permissive on update to handle partial updates via merging
+      allow update: if isValidProduct(request.resource.data) || isAdmin();
+      
+      // Only admins can delete products
+      allow delete: if isAdmin();
+    }
+
+    match /users/{userId} {
+      // Users can only read their own profile, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
+      // Users can create their own profile as 'user' role, admins can create any
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.role == 'user') || isAdmin());
+      // Users can update their own profile but NOT their role, admins can update any
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && request.resource.data.role == resource.data.role) || isAdmin());
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+
+    match /newsletter/{newsletterId} {
+      // Admins can read or manage newsletter list
+      allow read: if isAdmin();
+      // Anyone can subscribe
+      allow create: if isValidNewsletter(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,2050 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Google AI Studio App</title>
+    <style>
+      .ac-weather-wrap{max-width:620px;margin:0 auto;
+      border-radius:20px;overflow:hidden;
+      box-shadow:0 8px 32px rgba(0,0,0,0.15)}
+      .ac-weather-main{background:linear-gradient(
+      135deg,#1a6b3c,#2d9e5e);padding:28px 24px 20px;
+      color:white;position:relative}
+      .ac-weather-row1{display:flex;
+      justify-content:space-between;align-items:flex-start}
+      .ac-city{font-size:18px;font-weight:700}
+      .ac-date{font-size:12px;opacity:0.8;margin-top:4px}
+      .ac-icon-temp{text-align:right}
+      .ac-main-icon{font-size:56px;line-height:1}
+      .ac-main-temp{font-size:52px;font-weight:700}
+      .ac-condition{font-size:14px;opacity:0.85;margin-top:4px}
+      .ac-details-strip{display:flex;
+      justify-content:space-around;
+      background:rgba(255,255,255,0.12);
+      padding:12px;border-radius:12px;margin-top:16px}
+      .ac-det{text-align:center;font-size:12px}
+      .ac-det .lbl{opacity:0.75;margin-bottom:3px}
+      .ac-det .val{font-size:16px;font-weight:700}
+      .ac-advisory-bar{padding:12px 16px;font-size:13px;
+      font-weight:600;display:flex;align-items:center;gap:8px}
+      .ac-advisory-bar.hot{background:#e64a19;color:white}
+      .ac-advisory-bar.rain{background:#1565c0;color:white}
+      .ac-advisory-bar.cold{background:#0288d1;color:white}
+      .ac-advisory-bar.storm{background:#1a237e;color:white}
+      .ac-advisory-bar.normal{background:#2e7d32;color:white}
+      .ac-forecast-wrap{background:white;padding:16px}
+      .ac-forecast-title{font-size:13px;font-weight:700;
+      color:#555;margin-bottom:12px;text-transform:uppercase}
+      .ac-forecast-row{display:flex;justify-content:space-between;gap:6px}
+      .ac-fc-day{flex:1;text-align:center;padding:10px 4px;
+      border-radius:10px;background:#f5f9f5}
+      .ac-fc-day.today{background:#e8f5e9;
+      border:2px solid #2d6a2d}
+      .ac-fc-name{font-size:10px;font-weight:700;
+      color:#666;margin-bottom:4px}
+      .ac-fc-icon{font-size:20px;margin:4px 0}
+      .ac-fc-hi{font-size:12px;font-weight:700;color:#222}
+      .ac-fc-lo{font-size:11px;color:#888}
+      .ac-fc-rain{font-size:10px;color:#1976d2;margin-top:2px}
+      .ac-loc-section{background:#f9f9f9;
+      border-top:1px solid #eee;
+      padding:12px 16px;display:flex;
+      align-items:center;gap:10px}
+      .ac-loc-btn{flex:1;background:#2d6a2d;color:white;
+      border:none;padding:10px 16px;border-radius:8px;
+      font-size:13px;font-weight:600;cursor:pointer}
+      .ac-loc-btn:disabled{background:#aaa;cursor:not-allowed}
+      .ac-loc-info{font-size:11px;color:#888;flex:1}
+      .ac-loading{text-align:center;padding:60px 20px;
+      background:linear-gradient(135deg,#1a6b3c,#2d9e5e);
+      color:white;border-radius:20px}
+      .ac-spinner{width:36px;height:36px;
+      border:3px solid rgba(255,255,255,0.3);
+      border-top-color:white;border-radius:50%;
+      animation:wxspin 0.8s linear infinite;
+      margin:0 auto 12px}
+      @keyframes wxspin{to{transform:rotate(360deg)}}
+      @media(max-width:480px){
+      .ac-main-temp{font-size:40px}
+      .ac-main-icon{font-size:42px}
+      .ac-forecast-row{gap:3px}
+      .ac-fc-day{padding:8px 2px}
+      .ac-fc-icon{font-size:16px}
+      .ac-fc-name{font-size:9px}}
+
+      /* ================================
+         SCROLL ANIMATIONS - HOME PAGE
+      ================================ */
+
+      /* Base hidden state */
+      .ac-animate {
+        opacity: 0;
+        transition: all 0.8s ease;
+      }
+
+      /* Slide up animation */
+      .ac-slide-up {
+        opacity: 0;
+        transform: translateY(60px);
+        transition: all 0.8s ease;
+      }
+
+      /* Slide left animation */
+      .ac-slide-left {
+        opacity: 0;
+        transform: translateX(-60px);
+        transition: all 0.8s ease;
+      }
+
+      /* Slide right animation */
+      .ac-slide-right {
+        opacity: 0;
+        transform: translateX(60px);
+        transition: all 0.8s ease;
+      }
+
+      /* Zoom in animation */
+      .ac-zoom-in {
+        opacity: 0;
+        transform: scale(0.85);
+        transition: all 0.8s ease;
+      }
+
+      /* Fade in animation */
+      .ac-fade-in {
+        opacity: 0;
+        transition: all 1s ease;
+      }
+
+      /* When element becomes visible */
+      .ac-slide-up.ac-visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .ac-slide-left.ac-visible {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .ac-slide-right.ac-visible {
+        opacity: 1;
+        transform: translateX(0);
+      }
+
+      .ac-zoom-in.ac-visible {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .ac-fade-in.ac-visible {
+        opacity: 1;
+      }
+
+      /* Delay classes for stagger effect */
+      .ac-delay-1 { transition-delay: 0.1s; }
+      .ac-delay-2 { transition-delay: 0.2s; }
+      .ac-delay-3 { transition-delay: 0.3s; }
+      .ac-delay-4 { transition-delay: 0.4s; }
+      .ac-delay-5 { transition-delay: 0.5s; }
+      .ac-delay-6 { transition-delay: 0.6s; }
+
+      /* ================================
+         LEAF EATING LOADING ANIMATION
+         Only for weather section
+      ================================ */
+
+      .ac-leaf-loader {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        background: transparent;
+        min-height: 150px;
+      }
+
+      .ac-leaf-wrap {
+        position: relative;
+        width: 140px;
+        height: 30px;
+      }
+
+      /* Single straight green leaf */
+      .ac-leaf {
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 130px;
+        height: 18px;
+        background: #4caf50;
+        border-radius: 50%;
+        overflow: hidden;
+      }
+
+      /* Leaf center vein line */
+      .ac-leaf::after {
+        content: '';
+        position: absolute;
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 100px;
+        height: 1.5px;
+        background: #2d6a2d;
+        opacity: 0.4;
+      }
+
+      /* Eaten part - 
+         covers leaf from right to left */
+      .ac-eaten {
+        position: absolute;
+        right: 0;
+        top: 0;
+        height: 100%;
+        width: 0%;
+        background: transparent;
+        animation: eating 1.8s 
+          linear infinite;
+      }
+
+      /* Insect emoji moving left */
+      .ac-bug {
+        position: absolute;
+        right: -20px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 20px;
+        animation: bugEat 1.8s 
+          linear infinite;
+        line-height: 1;
+      }
+
+      /* Leaf disappears as bug eats */
+      @keyframes eating {
+        0% {
+          width: 0%;
+          background: transparent;
+        }
+        100% {
+          width: 100%;
+          background: transparent;
+        }
+      }
+
+      /* Bug moves from right to left */
+      @keyframes bugEat {
+        0% {
+          right: -20px;
+        }
+        100% {
+          right: 125px;
+        }
+      }
+
+      /* Leaf shrinks as bug eats it */
+      .ac-leaf {
+        animation: leafShrink 1.8s 
+          linear infinite;
+        transform-origin: left center;
+      }
+
+      @keyframes leafShrink {
+        0% {
+          width: 130px;
+          opacity: 1;
+        }
+        95% {
+          width: 0px;
+          opacity: 1;
+        }
+        96%,100% {
+          width: 130px;
+          opacity: 1;
+        }
+      }
+    </style>
+    <style>
+#rate-list-section,
+#rate-list-section *,
+.rate-list-tab,
+.rate-list-tab *,
+.rate-list-content,
+.rate-list-content *,
+[id*="rate-list"],
+[id*="rate-list"] *,
+[class*="rate-list"],
+[class*="rate-list"] * {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+  animation: none !important;
+  transition: none !important;
+}
+    </style>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script>
+    if (typeof Node !== 'undefined' && Node.prototype) {
+      var origRemoveChild = Node.prototype.removeChild;
+      Node.prototype.removeChild = function(child) {
+        if (child && child.parentNode !== this) {
+          if (child.parentNode) {
+            return child.parentNode.removeChild(child);
+          }
+          return child;
+        }
+        return origRemoveChild.call(this, child);
+      };
+
+      var origInsertBefore = Node.prototype.insertBefore;
+      Node.prototype.insertBefore = function(newNode, referenceNode) {
+        if (referenceNode && referenceNode.parentNode !== this) {
+          if (referenceNode.parentNode) {
+            return referenceNode.parentNode.insertBefore(newNode, referenceNode);
+          }
+          return this.appendChild(newNode);
+        }
+        return origInsertBefore.call(this, newNode, referenceNode);
+      };
+    }
+
+    if(typeof firebase !== 'undefined' && 
+       !firebase.apps.length) {
+      firebase.initializeApp({
+        apiKey: "AIzaSyDB7CA1HekrpSkImhjWXDVtjI0VlKGJMr4",
+        authDomain: "agriconnect-c3ebc.firebaseapp.com",
+        projectId: "agriconnect-c3ebc",
+        storageBucket: "agriconnect-c3ebc.firebasestorage.app",
+        messagingSenderId: "231319773495",
+        appId: "1:231319773495:web:4acd506756b48d26dc3ab2"
+      });
+    }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+    // AgriConnect Weather v3
+    // Manual city search system
+
+    var WXv3 = {
+      WK: 'ac_wx_v3',
+      CK: 'ac_city_v3',
+      LK: 'agriconnect-lang',
+      defaultCity: 'Lahore'
+    };
+
+    function wShowLeafLoader(lang) {
+      return (
+        '<div class="ac-leaf-loader">'+
+        '<div class="ac-leaf-wrap">'+
+        '<div class="ac-leaf"></div>'+
+        '<div class="ac-bug">🐛</div>'+
+        '</div>'+
+        '</div>'
+      );
+    }
+
+    // Pakistan popular cities
+    var PK_CITIES = [
+      'Lahore','Islamabad','Karachi',
+      'Multan','Faisalabad','Gujrat',
+      'Rawalpindi','Peshawar','Quetta',
+      'Sialkot','Gujranwala','Sahiwal',
+      'Bahawalpur','Sargodha','Hyderabad'
+    ];
+
+    // Weather code to info
+    function wInfo(code){
+      if(code===0) return {icon:'☀️',ru:'Saaf Aasman',en:'Clear Sky'};
+      if(code<=3)  return {icon:'⛅',ru:'Aasmaani Badal',en:'Partly Cloudy'};
+      if(code<=48) return {icon:'🌫️',ru:'Dhund',en:'Foggy'};
+      if(code<=55) return {icon:'🌦️',ru:'Halki Baarish',en:'Light Rain'};
+      if(code<=65) return {icon:'🌧️',ru:'Baarish',en:'Rainy'};
+      if(code<=77) return {icon:'❄️',ru:'Barf',en:'Snow'};
+      if(code<=82) return {icon:'🌧️',ru:'Tez Baarish',en:'Heavy Rain'};
+      return       {icon:'⛈️',ru:'Shadeed Toofan',en:'Thunderstorm'};
+    }
+
+    // Farming advice
+    function wAdvice(temp,rain,code){
+      if(temp>35) return {type:'hot',icon:'🌡️',
+        ru:'Garmi Bohot Zyada! Subah Ya Sham Ko Pani Dein.',
+        en:'Extreme Heat! Water crops morning or evening.'};
+      if(rain>70) return {type:'rain',icon:'🌧️',
+        ru:'Baarish Ka Zyada Imkan! Katai Rok Lein.',
+        en:'High Rain Chance! Stop harvesting.'};
+      if(temp<8)  return {type:'cold',icon:'🥶',
+        ru:'Shadeed Sardi! Raat Ko Fasal Dhakein.',
+        en:'Severe Cold! Cover crops at night.'};
+      if(code>=95)return {type:'storm',icon:'⛈️',
+        ru:'Toofan Ka Khatra! Khet Mein Mat Jayein.',
+        en:'Storm Warning! Stay away from fields.'};
+      return      {type:'normal',icon:'🌿',
+        ru:'Mausam Khushgawar! Fasal Lagane Ka Acha Waqt.',
+        en:'Pleasant Weather! Great time to plant crops.'};
+    }
+
+    // Day names
+    function wGetDayName(dateString, index, lang) {
+      var DAYS_RU = ['Itwar', 'Somar', 'Mangal', 'Budh', 'Jumerat', 'Jumma', 'Hafta'];
+      var DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      if(index === 0) return lang === 'en' ? 'Today' : 'Aaj';
+      if(index === 1) return lang === 'en' ? 'Tomorrow' : 'Kal';
+      var date = new Date(dateString);
+      var dayNumber = date.getDay();
+      return lang === 'en' ? DAYS_EN[dayNumber] : DAYS_RU[dayNumber];
+    }
+
+    function wGetDateStr(lang){
+      var d = new Date();
+      var DAYS_RU = ['Itwar','Somar','Mangal','Budh','Jumerat','Jumma','Hafta'];
+      var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      if(lang === 'en'){
+        var DAYS_EN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        return DAYS_EN[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+      } else {
+        return DAYS_RU[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+      }
+    }
+
+    // Step 1: City name to coordinates
+    async function wGetCoords(cityName){
+      try{
+        var url='https://geocoding-api.open-meteo.com/v1/search'+
+          '?name='+encodeURIComponent(cityName)+
+          '&count=1&language=en&format=json';
+        var r=await fetch(url);
+        var d=await r.json();
+        if(d.results && d.results.length>0){
+          return{
+            lat: d.results[0].latitude,
+            lng: d.results[0].longitude,
+            city: d.results[0].name+', '+
+              (d.results[0].admin1||'Pakistan')
+          };
+        }
+        return null;
+      }catch(e){return null;}
+    }
+
+    // Step 2: Coordinates to weather
+    async function wGetWeather(lat,lng,city){
+      try{
+        var url='https://api.open-meteo.com/v1/forecast'+
+          '?latitude='+lat+
+          '&longitude='+lng+
+          '&current=temperature_2m,relative_humidity_2m,'+
+          'wind_speed_10m,precipitation_probability,weather_code'+
+          '&daily=temperature_2m_max,temperature_2m_min,'+
+          'precipitation_probability_max,weather_code'+
+          '&timezone=Asia%2FKarachi&forecast_days=7';
+        var r=await fetch(url);
+        var d=await r.json();
+        var result={
+          city:city,lat:lat,lng:lng,
+          at:Date.now(),
+          cur:{
+            temp:Math.round(d.current.temperature_2m),
+            humidity:d.current.relative_humidity_2m,
+            wind:Math.round(d.current.wind_speed_10m),
+            rain:d.current.precipitation_probability||0,
+            code:d.current.weather_code
+          },
+          daily:{
+            time:d.daily.time,
+            hi:d.daily.temperature_2m_max,
+            lo:d.daily.temperature_2m_min,
+            rain:d.daily.precipitation_probability_max,
+            code:d.daily.weather_code
+          }
+        };
+        // Save to localStorage
+        localStorage.setItem(WXv3.WK,JSON.stringify(result));
+        localStorage.setItem(WXv3.CK,city);
+        return result;
+      }catch(e){
+        // Return cached if available
+        var c=localStorage.getItem(WXv3.WK);
+        if(c) return JSON.parse(c);
+        // Return default
+        return{
+          city:city,at:Date.now(),
+          cur:{temp:28,humidity:62,wind:11,rain:15,code:0},
+          daily:null
+        };
+      }
+    }
+
+    // Search city and update weather
+    async function wSearchCity(cityName){
+      if(!cityName || cityName.trim()==='') return;
+
+      var lang = localStorage.getItem(WXv3.LK) || 'ru';
+
+      var hw = document.getElementById('ac-home-weather');
+      var fw = document.getElementById('ac-full-weather');
+
+      // Show leaf loader
+      if(hw) hw.innerHTML = wShowLeafLoader(lang);
+      if(fw) {
+        var fwContent = document.getElementById('ac-full-weather');
+        if(fwContent) {
+          // Keep search bar visible
+          // Only replace weather card area
+          var weatherCard = fwContent.querySelector('.ac-weather-wrap');
+          if(weatherCard) {
+            weatherCard.outerHTML = wShowLeafLoader(lang);
+          } else {
+            fwContent.innerHTML = wShowLeafLoader(lang);
+          }
+        }
+      }
+
+      // Get coordinates first
+      var coords=await wGetCoords(cityName);
+
+      if(!coords){
+        // City not found error
+        var errHTML='<div style="background:#fff3e0;'+
+          'border-left:4px solid #ff9800;'+
+          'padding:16px;border-radius:8px;'+
+          'color:#e65100;font-size:14px;">'+
+          '❌ '+(l?
+          'City not found. Try another name.':
+          'Shehar nahi mila. Doosra naam likhein.')+
+          '</div>';
+        if(hw) hw.innerHTML=errHTML;
+        return;
+      }
+
+      // Get weather
+      var data=await wGetWeather(coords.lat,coords.lng,coords.city);
+
+      // Update both widgets
+      wUpdateAll(data,lang);
+    }
+
+    // Build home widget HTML
+    function wBuildHome(data,lang){
+      var l=lang==='en';
+      var wi=wInfo(data.cur.code);
+      var ad=wAdvice(data.cur.temp,data.cur.rain,data.cur.code);
+      var dateStr=wGetDateStr(lang);
+
+      var labels = {
+        hum: l ? 'Humidity' : 'Nami',
+        wind: l ? 'Wind Speed' : 'Hawa Ki Raftar',
+        rain: l ? 'Rain Chance' : 'Baarish Ka Imkan'
+      };
+
+      return '<div class="ac-weather-wrap">'+
+        '<div class="ac-weather-main">'+
+        '<div class="ac-weather-row1">'+
+        '<div>'+
+        '<div class="ac-city">📍 '+data.city+'</div>'+
+        '<div class="ac-date">'+dateStr+'</div>'+
+        '</div>'+
+        '<div class="ac-icon-temp">'+
+        '<div class="ac-main-icon">'+wi.icon+'</div>'+
+        '<div class="ac-main-temp">'+data.cur.temp+'°C</div>'+
+        '</div></div>'+
+        '<div class="ac-condition">'+(l?wi.en:wi.ru)+'</div>'+
+        '<div class="ac-details-strip">'+
+        '<div class="ac-det">'+
+        '<div class="lbl">💧 '+labels.hum+'</div>'+
+        '<div class="val">'+data.cur.humidity+'%</div></div>'+
+        '<div class="ac-det">'+
+        '<div class="lbl">💨 '+labels.wind+'</div>'+
+        '<div class="val">'+data.cur.wind+' km/h</div></div>'+
+        '<div class="ac-det">'+
+        '<div class="lbl">🌧️ '+labels.rain+'</div>'+
+        '<div class="val">'+data.cur.rain+'%</div></div>'+
+        '</div></div>'+
+        '<div class="ac-advisory-bar '+ad.type+'">'+
+        ad.icon+' '+(l?ad.en:ad.ru)+
+        '</div></div>';
+    }
+
+    // Build forecast days
+    function wBuildDays(data,lang){
+      if(!data.daily||!data.daily.time) return '';
+      return data.daily.time.map(function(dt,i){
+        var wi=wInfo(data.daily.code[i]);
+        return '<div class="ac-fc-day'+(i===0?' today':'')+'">'+
+          '<div class="ac-fc-name">'+wGetDayName(dt,i,lang)+'</div>'+
+          '<div class="ac-fc-icon">'+wi.icon+'</div>'+
+          '<div class="ac-fc-hi">'+
+            Math.round(data.daily.hi[i])+'°</div>'+
+          '<div class="ac-fc-lo">'+
+            Math.round(data.daily.lo[i])+'°</div>'+
+          '<div class="ac-fc-rain">'+
+            '🌧️'+data.daily.rain[i]+'%</div>'+
+          '</div>';
+      }).join('');
+    }
+
+    // Build full weather tab HTML
+    function wBuildFull(data,lang){
+      var l=lang==='en';
+      var wi=wInfo(data.cur.code);
+      var ad=wAdvice(data.cur.temp,data.cur.rain,data.cur.code);
+      var dateStr=wGetDateStr(lang);
+
+      var labels = {
+        placeholder: l ? 'Enter city name... e.g. Lahore, Karachi, Islamabad' : 'Shehar ka naam likhein... jaise Lahore, Karachi, Islamabad',
+        quick: l ? 'Quick Select:' : 'Jaldi Chunein:',
+        hum: l ? 'Humidity' : 'Nami',
+        wind: l ? 'Wind Speed' : 'Hawa Ki Raftar',
+        rain: l ? 'Rain Chance' : 'Baarish Ka Imkan',
+        forecast: l ? '7 Day Forecast' : '7 Din Ka Mosam'
+      };
+
+      // Quick city buttons
+      var cityBtns=PK_CITIES.map(function(c){
+        return '<button onclick="wQuickCity(\''+c+'\')"'+
+          ' style="background:#f0f9f0;border:1px solid #2d6a2d;'+
+          'color:#2d6a2d;padding:4px 10px;border-radius:20px;'+
+          'font-size:12px;cursor:pointer;margin:3px;">'+
+          c+'</button>';
+      }).join('');
+
+      return (
+        // Search bar section
+        '<div style="background:#f9f9f9;'+
+        'border-radius:12px;padding:16px;margin-bottom:16px;">'+
+
+        '<div style="display:flex;gap:8px;margin-bottom:10px;">'+
+        '<input id="wx-city-input" type="text"'+
+        ' placeholder="'+labels.placeholder+'"'+
+        ' onkeypress="if(event.key===\'Enter\'){wSearchCity(this.value);}"'+
+        ' onkeydown="if(event.keyCode===13){wSearchCity(this.value);}"'+
+        ' style="flex:1;padding:10px 14px;border:2px solid #2d6a2d;'+
+        'border-radius:8px;font-size:14px;outline:none;"/>'+
+        '<button onclick="wSearchCity('+
+          'document.getElementById(\'wx-city-input\').value)"'+
+        ' style="background:#2d6a2d;color:white;border:none;'+
+        'padding:10px 18px;border-radius:8px;'+
+        'font-size:16px;cursor:pointer;">🔍</button>'+
+        '</div>'+
+
+        // Quick city buttons
+        '<div style="font-size:11px;color:#888;margin-bottom:6px;">'+
+        labels.quick+
+        '</div>'+
+        '<div>'+cityBtns+'</div>'+
+        '</div>'+
+
+        // Weather card
+        '<div class="ac-weather-wrap">'+
+        '<div class="ac-weather-main">'+
+        '<div class="ac-weather-row1">'+
+        '<div>'+
+        '<div class="ac-city">📍 '+data.city+'</div>'+
+        '<div class="ac-date">'+dateStr+'</div>'+
+        '</div>'+
+        '<div class="ac-icon-temp">'+
+        '<div class="ac-main-icon">'+wi.icon+'</div>'+
+        '<div class="ac-main-temp">'+data.cur.temp+'°C</div>'+
+        '</div></div>'+
+        '<div class="ac-condition">'+(l?wi.en:wi.ru)+'</div>'+
+        '<div class="ac-details-strip">'+
+        '<div class="ac-det">'+
+        '<div class="lbl">💧 '+labels.hum+'</div>'+
+        '<div class="val">'+data.cur.humidity+'%</div></div>'+
+        '<div class="ac-det">'+
+        '<div class="lbl">💨 '+labels.wind+'</div>'+
+        '<div class="val">'+data.cur.wind+' km/h</div></div>'+
+        '<div class="ac-det">'+
+        '<div class="lbl">🌧️ '+labels.rain+'</div>'+
+        '<div class="val">'+data.cur.rain+'%</div></div>'+
+        '</div></div>'+
+        '<div class="ac-advisory-bar '+ad.type+'">'+
+        ad.icon+' '+(l?ad.en:ad.ru)+
+        '</div>'+
+
+        // 7 day forecast
+        '<div class="ac-forecast-wrap">'+
+        '<div class="ac-forecast-title">'+
+        '📅 '+labels.forecast+
+        '</div>'+
+        '<div class="ac-forecast-row">'+
+        wBuildDays(data,lang)+
+        '</div></div></div>'
+      );
+    }
+
+    // Update both widgets on all pages
+    function wUpdateAll(data,lang){
+      var hw=document.getElementById('ac-home-weather');
+      var fw=document.getElementById('ac-full-weather');
+      if(hw) hw.innerHTML=wBuildHome(data,lang);
+      if(fw) fw.innerHTML=wBuildFull(data,lang);
+    }
+
+    // Quick city button click
+    function wQuickCity(cityName){
+      var input=document.getElementById('wx-city-input');
+      if(input) input.value=cityName;
+      wSearchCity(cityName);
+    }
+
+    // Refresh language
+    function wxRefreshLang(){
+      var lang=localStorage.getItem(WXv3.LK)||'ru';
+      var c=localStorage.getItem(WXv3.WK);
+      if(!c) return;
+      wUpdateAll(JSON.parse(c),lang);
+    }
+
+    // Initialize on page load
+    async function wInit(){
+      var lang=localStorage.getItem(WXv3.LK)||'ru';
+      var savedCity=localStorage.getItem(WXv3.CK)||WXv3.defaultCity;
+      var cached=localStorage.getItem(WXv3.WK);
+
+      var hw = document.getElementById('ac-home-weather');
+      var fw = document.getElementById('ac-full-weather');
+      if(hw && !cached) hw.innerHTML = wShowLeafLoader(lang);
+      if(fw && !cached) fw.innerHTML = wShowLeafLoader(lang);
+
+      if(cached){
+        var data=JSON.parse(cached);
+        wUpdateAll(data,lang);
+      } else {
+        await wSearchCity(savedCity);
+      }
+    }
+
+    window.addEventListener('load',wInit);
+    window.addEventListener('load', function(){
+      var lang = localStorage.getItem(
+        'agriconnect-lang'
+      ) || 'ru';
+      var forecastBtn = document.getElementById(
+        'forecast-nav-btn'
+      );
+      if(forecastBtn) {
+        forecastBtn.textContent = lang === 'en' ?
+          'View Full Forecast →' :
+          'Poora Forecast Dekhein →';
+      }
+    });
+    </script>
+
+    <script>
+    // Scroll Animation Engine
+    function acInitAnimations() {
+      // Create Intersection Observer
+      var observer = new IntersectionObserver(
+        function(entries) {
+          entries.forEach(function(entry) {
+            if(entry.isIntersecting) {
+              // Scrolling down - animate in
+              entry.target.classList.add(
+                'ac-visible'
+              );
+            } else {
+              // Scrolling up - animate out
+              entry.target.classList.remove(
+                'ac-visible'
+              );
+            }
+          });
+        },
+        {
+          threshold: 0.15,
+          rootMargin: '0px 0px -50px 0px'
+        }
+      );
+      
+      // Observe all animated elements
+      document.querySelectorAll(
+        '.ac-slide-up, .ac-slide-left, ' +
+        '.ac-slide-right, .ac-zoom-in, ' +
+        '.ac-fade-in'
+      ).forEach(function(el) {
+        observer.observe(el);
+      });
+    }
+
+    window.acInitAnimations = acInitAnimations;
+    window.addEventListener('load', acInitAnimations);
+    </script>
+
+    <script>
+    // --- AGRICONNECT CUSTOMER DASHBOARD & AUTH OVERLAY ---
+    function acToggleMenu(event) {
+      if(event) event.stopPropagation();
+      var menu = document.getElementById('ac-user-menu');
+      if(!menu) return;
+      var isVisible = menu.style.display === 'block';
+      menu.style.display = isVisible ? 'none' : 'block';
+    }
+
+    document.addEventListener('click', function(e) {
+      if(e.target && !e.target.closest('#nav-avatar-wrap') && !e.target.closest('#ac-avatar-wrap')) {
+        var menu = document.getElementById('ac-user-menu');
+        if(menu) menu.style.display = 'none';
+      }
+    });
+
+    function navigateToPage(path) {
+      if (path === 'home') {
+        window.location.href = '/';
+      } else if (path === 'login') {
+        window.location.href = '/login';
+      } else if (path === 'seller-login') {
+        window.location.href = '/login?role=seller';
+      } else if (path === 'customer-register') {
+        window.location.href = '/signup';
+      } else if (path === 'vegetables') {
+        window.location.href = '/sabziyaan';
+      } else {
+        window.location.href = '/' + path;
+      }
+    }
+
+    function acMenuItem(icon, text, onclick) {
+      return (
+        '<div onclick="'+onclick+'" '+
+        'style="padding:12px 16px;'+
+        'cursor:pointer;font-size:14px;'+
+        'color:#333;display:flex;'+
+        'align-items:center;gap:10px;text-align:left;" '+
+        'onmouseover="this.style.background='+
+        '\'#f5f5f5\'" '+
+        'onmouseout="this.style.background=\'\'">'+
+        icon+' '+text+
+        '</div>'
+      );
+    }
+
+    function acBuildDropdown(name, email, userType, color, initial) {
+      var lang = localStorage.getItem('agriconnect-lang') || 'ru';
+      var l = lang === 'en';
+      
+      return (
+        '<div id="ac-user-menu" '+
+        'style="display:none;position:absolute;'+
+        'top:46px;right:0;background:white;'+
+        'border-radius:16px;min-width:240px;'+
+        'box-shadow:0 8px 32px rgba(0,0,0,0.15);'+
+        'z-index:99999;overflow:hidden;border:1px solid #eee;">'+
+        
+        // Header
+        '<div style="padding:16px;'+
+        'background:linear-gradient('+
+        '135deg,#1a6b3c,#2d9e5e);'+
+        'color:white;">'+
+        '<div style="display:flex;'+
+        'align-items:center;gap:12px;">'+
+        '<div style="width:44px;height:44px;'+
+        'border-radius:50%;background:'+color+';'+
+        'display:flex;align-items:center;'+
+        'justify-content:center;font-size:20px;'+
+        'font-weight:700;border:2px solid '+
+        'rgba(255,255,255,0.5);">'+
+        initial+'</div>'+
+        '<div style="overflow:hidden;max-width:140px;text-align:left;">'+
+        '<div style="font-weight:700;'+
+        'font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+name+'</div>'+
+        '<div style="font-size:12px;'+
+        'opacity:0.85;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+
+        email+'</div>'+
+        '<div style="font-size:11px;'+
+        'margin-top:4px;background:'+
+        'rgba(255,255,255,0.2);'+
+        'padding:2px 8px;border-radius:10px;'+
+        'display:inline-block;">'+
+        (userType==='seller'?
+          '🏪 Seller':'👤 Customer')+
+        '</div>'+
+        '</div></div></div>'+
+        
+        // Menu items
+        '<div style="padding:8px 0;text-align:left;">'+
+        
+        // My Profile
+        acMenuItem('👤', l?'My Profile':'Mera Profile', 'acShowProfile()')+
+        
+        // My Orders
+        acMenuItem('📦', l?'My Orders':'Mere Orders', 'acShowOrders()')+
+        
+        // Pending Orders
+        acMenuItem('⏳', l?'Pending Orders':'Pending Orders', 'acShowPendingOrders()')+
+        
+        // Settings
+        acMenuItem('⚙️', l?'Settings':'Settings', 'acShowSettings()')+
+        
+        '<div style="height:1px;'+
+        'background:#f0f0f0;margin:6px 0;">'+
+        '</div>'+
+        
+        // Logout
+        '<div onclick="acLogout()" '+
+        'style="padding:12px 16px;'+
+        'cursor:pointer;font-size:14px;'+
+        'color:#e74c3c;display:flex;'+
+        'align-items:center;gap:10px;" '+
+        'onmouseover="this.style.background='+
+        '\'#fff5f5\'" '+
+        'onmouseout="this.style.background=\'\'">'+
+        '🚪 Logout'+
+        '</div>'+
+        
+        '</div></div>'
+      );
+    }
+
+    function acProfileRow(icon, label, value) {
+      return (
+        '<div style="display:flex;'+
+        'align-items:flex-start;gap:12px;'+
+        'padding:12px 0;border-bottom:'+
+        '1px solid #f5f5f5;">'+
+        '<span style="font-size:18px;">'+
+        icon+'</span>'+
+        '<div>'+
+        '<div style="font-size:11px;'+
+        'color:#888;margin-bottom:2px;">'+
+        label+'</div>'+
+        '<div style="font-size:14px;'+
+        'color:#333;font-weight:500;">'+
+        value+'</div>'+
+        '</div></div>'
+      );
+    }
+
+    function acShowProfile() {
+      var menu = document.getElementById(
+        'ac-user-menu'
+      );
+      if(menu) menu.style.display = 'none';
+      
+      var user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+      if(!user) {
+        var userDataStr = localStorage.getItem('ac_user');
+        if (userDataStr) {
+          try {
+            var parsed = JSON.parse(userDataStr);
+            if (parsed && parsed.uid) {
+              user = { uid: parsed.uid, email: parsed.email || '', displayName: parsed.fullName || '' };
+            }
+          } catch(e) {}
+        }
+      }
+      if(!user) return;
+      
+      var lang = localStorage.getItem(
+        'agriconnect-lang'
+      ) || 'ru';
+      var l = lang === 'en';
+      
+      var colorKey = 'ac_avatar_' + user.uid;
+      var color = localStorage.getItem(colorKey) 
+        || '#2d6a2d';
+      var initial = (user.displayName || 
+        user.email || 'U').charAt(0).toUpperCase();
+      
+      // Remove existing popup
+      var existing = document.getElementById(
+        'ac-profile-popup'
+      );
+      if(existing) existing.remove();
+      
+      // Show loading popup first
+      var popup = document.createElement('div');
+      popup.id = 'ac-profile-popup';
+      popup.style.cssText = 
+        'position:fixed;top:0;left:0;'+
+        'width:100%;height:100%;'+
+        'background:rgba(0,0,0,0.6);'+
+        'z-index:999999;display:flex;'+
+        'align-items:center;'+
+        'justify-content:center;padding:20px;';
+      
+      popup.innerHTML = 
+        '<div style="background:white;'+
+        'border-radius:20px;width:100%;'+
+        'max-width:440px;padding:40px;'+
+        'text-align:center;">'+
+        '<div style="font-size:32px;">⏳</div>'+
+        '<div style="color:#666;margin-top:12px;">'+
+        (l?'Loading profile...':
+        'Profile load ho rahi hai...')+
+        '</div></div>';
+      
+      document.body.appendChild(popup);
+      
+      popup.addEventListener('click', function(e) {
+        if(e.target === popup) popup.remove();
+      });
+      
+      // Fetch from Firebase
+      firebase.firestore()
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .then(function(doc) {
+          var userData = {};
+          if(doc.exists) {
+            userData = doc.data();
+            // Update localStorage with fresh data
+            localStorage.setItem(
+              'ac_user',
+              JSON.stringify(userData)
+            );
+          } else {
+            userData = JSON.parse(localStorage.getItem('ac_user') || '{}');
+          }
+          
+          var name = userData.fullName || 
+            user.displayName || 
+            (user.email ? user.email.split('@')[0] : 'User');
+          initial = name.charAt(0).toUpperCase();
+          
+          // Build full profile popup
+          popup.innerHTML = 
+            '<div id="ac-profile-card" '+
+            'style="background:white;'+
+            'border-radius:20px;width:100%;'+
+            'max-width:440px;max-height:85vh;'+
+            'overflow-y:auto;">'+
+            
+            // Green header
+            '<div style="background:linear-gradient('+
+            '135deg,#1a6b3c,#2d9e5e);'+
+            'padding:24px;'+
+            'border-radius:20px 20px 0 0;'+
+            'color:white;text-align:center;'+
+            'position:relative;">'+
+            
+            '<button onclick="document.getElementById('+
+            '\'ac-profile-popup\').remove()" '+
+            'style="position:absolute;top:12px;'+
+            'right:12px;background:'+
+            'rgba(255,255,255,0.2);border:none;'+
+            'color:white;width:30px;height:30px;'+
+            'border-radius:50%;cursor:pointer;'+
+            'font-size:16px;">✕</button>'+
+            
+            '<div style="width:70px;height:70px;'+
+            'border-radius:50%;background:'+color+';'+
+            'display:flex;align-items:center;'+
+            'justify-content:center;'+
+            'font-size:28px;font-weight:700;'+
+            'margin:0 auto 12px;border:3px solid '+
+            'rgba(255,255,255,0.5);">'+
+            initial+'</div>'+
+            
+            '<div style="font-size:20px;'+
+            'font-weight:700;">'+name+'</div>'+
+            '<div style="font-size:13px;'+
+            'opacity:0.85;margin-top:4px;">'+
+            (userData.email||user.email||'')+
+            '</div>'+
+            '<div style="margin-top:8px;'+
+            'background:rgba(255,255,255,0.2);'+
+            'padding:4px 14px;border-radius:12px;'+
+            'display:inline-block;font-size:12px;">'+
+            (userData.userType==='seller'?
+              '🏪 Seller':'👤 Customer')+
+            '</div></div>'+
+            
+            // Info section
+            '<div style="padding:20px;">'+
+            
+            '<div style="font-size:15px;'+
+            'font-weight:700;color:#333;'+
+            'margin-bottom:16px;'+
+            'padding-bottom:10px;'+
+            'border-bottom:2px solid #f0f0f0;">'+
+            (l?'Personal Information':
+            'Zaati Maloomat')+
+            '</div>'+
+            
+            acProfileRow('📱',
+              l?'Phone':'Phone Number',
+              userData.phone||'-')+
+            acProfileRow('💬',
+              l?'WhatsApp':'WhatsApp',
+              userData.whatsapp||'-')+
+            acProfileRow('🏙️',
+              l?'City':'Shehar',
+              userData.city||'-')+
+            acProfileRow('📍',
+              l?'Area':'Area/Mohalla',
+              userData.area||'-')+
+            acProfileRow('🏠',
+              l?'Address':'Ghar Ka Pata',
+              userData.address||'-')+
+            acProfileRow('🏷️',
+              l?'Landmark':'Ghar Ka Nishaan',
+              userData.landmark||'-')+
+            acProfileRow('🔐',
+              l?'Login Method':'Login Tarika',
+              userData.loginMethod||'email')+
+            
+            // Edit Profile button
+            '<button id="edit-profile-btn" '+
+            'onclick="acEditProfile()" '+
+            'style="width:100%;background:#2d6a2d;'+
+            'color:white;border:none;padding:13px;'+
+            'border-radius:10px;cursor:pointer;'+
+            'font-size:14px;font-weight:600;'+
+            'margin-top:16px;">'+
+            (l?'Edit Profile':
+            'Profile Edit Karein')+
+            '</button>'+
+            
+            '</div></div>';
+        })
+        .catch(function(error) {
+          popup.innerHTML = 
+            '<div style="background:white;'+
+            'border-radius:20px;padding:40px;'+
+            'text-align:center;max-width:400px;">'+
+            '<div style="font-size:32px;">❌</div>'+
+            '<div style="color:#e74c3c;'+
+            'margin-top:12px;">'+
+            (l?'Could not load profile':
+            'Profile load nahi hui')+
+            '</div>'+
+            '<button onclick="document.getElementById('+
+            '\'ac-profile-popup\').remove()" '+
+            'style="margin-top:16px;'+
+            'background:#2d6a2d;color:white;'+
+            'border:none;padding:10px 20px;'+
+            'border-radius:8px;cursor:pointer;">'+
+            (l?'Close':'Band Karein')+
+            '</button></div>';
+        });
+    }
+
+    function acEditProfile() {
+      var user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+      if(!user) {
+        var userDataStr = localStorage.getItem('ac_user');
+        if (userDataStr) {
+          try {
+            var parsed = JSON.parse(userDataStr);
+            if (parsed && parsed.uid) {
+              user = { uid: parsed.uid, email: parsed.email || '', displayName: parsed.fullName || '' };
+            }
+          } catch(e) {}
+        }
+      }
+      if(!user) return;
+      
+      var lang = localStorage.getItem(
+        'agriconnect-lang'
+      ) || 'ru';
+      var l = lang === 'en';
+      
+      var userData = JSON.parse(
+        localStorage.getItem('ac_user') || '{}'
+      );
+      
+      var card = document.getElementById(
+        'ac-profile-card'
+      );
+      if(!card) return;
+      
+      var colorKey = 'ac_avatar_' + user.uid;
+      var color = localStorage.getItem(colorKey)
+        || '#2d6a2d';
+      var name = userData.fullName || 
+        user.displayName || '';
+      var initial = (name || user.email || 'U').charAt(0).toUpperCase();
+      
+      card.innerHTML = 
+        // Green header same
+        '<div style="background:linear-gradient('+
+        '135deg,#1a6b3c,#2d9e5e);'+
+        'padding:24px;'+
+        'border-radius:20px 20px 0 0;'+
+        'color:white;text-align:center;'+
+        'position:relative;">'+
+        
+        '<button onclick="acShowProfile()" '+
+        'style="position:absolute;top:12px;'+
+        'left:12px;background:'+
+        'rgba(255,255,255,0.2);border:none;'+
+        'color:white;width:30px;height:30px;'+
+        'border-radius:50%;cursor:pointer;'+
+        'font-size:16px;">←</button>'+
+        
+        '<button onclick="document.getElementById('+
+        '\'ac-profile-popup\').remove()" '+
+        'style="position:absolute;top:12px;'+
+        'right:12px;background:'+
+        'rgba(255,255,255,0.2);border:none;'+
+        'color:white;width:30px;height:30px;'+
+        'border-radius:50%;cursor:pointer;'+
+        'font-size:16px;">✕</button>'+
+        
+        '<div style="width:60px;height:60px;'+
+        'border-radius:50%;background:'+color+';'+
+        'display:flex;align-items:center;'+
+        'justify-content:center;'+
+        'font-size:24px;font-weight:700;'+
+        'margin:0 auto 8px;border:3px solid '+
+        'rgba(255,255,255,0.5);">'+
+        initial+'</div>'+
+        
+        '<div style="font-size:16px;'+
+        'font-weight:700;">'+
+        (l?'Edit Profile':
+        'Profile Edit Karein')+
+        '</div></div>'+
+        
+        // Edit form
+        '<div style="padding:20px;'+
+        'max-height:60vh;overflow-y:auto;">'+
+        
+        acEditField('edit-fullname',
+          l?'Full Name':'Poora Naam',
+          userData.fullName||'')+
+        acEditField('edit-phone',
+          l?'Phone':'Phone Number',
+          userData.phone||'')+
+        acEditField('edit-whatsapp',
+          l?'WhatsApp':'WhatsApp Number',
+          userData.whatsapp||'')+
+        acEditField('edit-city',
+          l?'City':'Shehar',
+          userData.city||'')+
+        acEditField('edit-area',
+          l?'Area':'Area/Mohalla',
+          userData.area||'')+
+        acEditField('edit-address',
+          l?'Address':'Ghar Ka Pata',
+          userData.address||'')+
+        acEditField('edit-landmark',
+          l?'Landmark':'Ghar Ka Nishaan',
+          userData.landmark||'')+
+        
+        // Save button
+        '<button onclick="acSaveProfile()" '+
+        'style="width:100%;background:#2d6a2d;'+
+        'color:white;border:none;padding:13px;'+
+        'border-radius:10px;cursor:pointer;'+
+        'font-size:14px;font-weight:600;'+
+        'margin-top:16px;" '+
+        'id="save-profile-btn">'+
+        (l?'Save Changes':
+        'Changes Save Karein')+
+        '</button>'+
+        
+        '</div>';
+    }
+
+    function acEditField(id, label, value) {
+      return (
+        '<div style="margin-bottom:14px;">'+
+        '<label style="display:block;'+
+        'font-size:12px;color:#888;'+
+        'font-weight:600;margin-bottom:6px;'+
+        'text-transform:uppercase;">'+
+        label+'</label>'+
+        '<input id="'+id+'" type="text" '+
+        'value="'+value+'" '+
+        'style="width:100%;padding:10px 14px;'+
+        'border:2px solid #e0e0e0;'+
+        'border-radius:8px;font-size:14px;'+
+        'outline:none;transition:border 0.2s;" '+
+        'onfocus="this.style.border='+
+        '\'2px solid #2d6a2d\'" '+
+        'onblur="this.style.border='+
+        '\'2px solid #e0e0e0\'">'+
+        '</div>'
+      );
+    }
+
+    async function acSaveProfile() {
+      var user = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+      if(!user) {
+        var userDataStr = localStorage.getItem('ac_user');
+        if (userDataStr) {
+          try {
+            var parsed = JSON.parse(userDataStr);
+            if (parsed && parsed.uid) {
+              user = { uid: parsed.uid, email: parsed.email || '', displayName: parsed.fullName || '' };
+            }
+          } catch(e) {}
+        }
+      }
+      if(!user) return;
+      
+      var lang = localStorage.getItem(
+        'agriconnect-lang'
+      ) || 'ru';
+      var l = lang === 'en';
+      
+      var btn = document.getElementById(
+        'save-profile-btn'
+      );
+      if(btn) {
+        btn.disabled = true;
+        btn.textContent = 
+          l?'Saving...':'Save ho raha hai...';
+      }
+      
+      var updatedData = {
+        fullName: document.getElementById(
+          'edit-fullname'
+        ).value.trim(),
+        phone: document.getElementById(
+          'edit-phone'
+        ).value.trim(),
+        whatsapp: document.getElementById(
+          'edit-whatsapp'
+        ).value.trim(),
+        city: document.getElementById(
+          'edit-city'
+        ).value.trim(),
+        area: document.getElementById(
+          'edit-area'
+        ).value.trim(),
+        address: document.getElementById(
+          'edit-address'
+        ).value.trim(),
+        landmark: document.getElementById(
+          'edit-landmark'
+        ).value.trim(),
+        updatedAt: firebase.firestore
+          .FieldValue.serverTimestamp()
+      };
+      
+      try {
+        // Save to Firebase
+        await firebase.firestore()
+          .collection('users')
+          .doc(user.uid)
+          .set(updatedData, { merge: true });
+        
+        // Update Firebase auth display name
+        if (user.updateProfile && updatedData.fullName) {
+          try {
+            await user.updateProfile({
+              displayName: updatedData.fullName
+            });
+          } catch(e) {}
+        }
+        
+        // Update localStorage
+        var existing = JSON.parse(
+          localStorage.getItem('ac_user') || '{}'
+        );
+        var merged = Object.assign(
+          existing, updatedData
+        );
+        localStorage.setItem(
+          'ac_user', JSON.stringify(merged)
+        );
+        
+        window.dispatchEvent(new Event('ac_user_updated'));
+        
+        // Show success
+        if(btn) {
+          btn.disabled = false;
+          btn.textContent = l?
+            '✅ Saved!':'✅ Save Ho Gaya!';
+          btn.style.background = '#27ae60';
+        }
+        
+        // Go back to profile view after 1.5s
+        setTimeout(function() {
+          acShowProfile();
+        }, 1500);
+        
+      } catch(error) {
+        if(btn) {
+          btn.disabled = false;
+          btn.textContent = l?
+            'Save Changes':
+            'Changes Save Karein';
+        }
+        alert(l?
+          'Could not save. Try again!':
+          'Save nahi hua. Dobara try karein!'
+        );
+      }
+    }
+
+    async function acShowOrders() {
+      var menu = document.getElementById('ac-user-menu');
+      if(menu) menu.style.display = 'none';
+      
+      var user = firebase.auth().currentUser;
+      var lang = localStorage.getItem('agriconnect-lang') || 'ru';
+      var l = lang === 'en';
+      
+      var uid = user ? user.uid : '';
+      if (!uid) {
+        var userData = JSON.parse(localStorage.getItem('ac_user') || '{}');
+        uid = userData.uid || '';
+      }
+      
+      var popup = document.createElement('div');
+      popup.id = 'ac-orders-popup';
+      popup.style.cssText = 
+        'position:fixed;top:0;left:0;'+
+        'width:100%;height:100%;'+
+        'background:rgba(0,0,0,0.6);'+
+        'z-index:99999;display:flex;'+
+        'align-items:center;'+
+        'justify-content:center;padding:20px;';
+      
+      popup.innerHTML = 
+        '<div style="background:white;'+
+        'border-radius:20px;width:100%;'+
+        'max-width:520px;max-height:85vh;'+
+        'overflow-y:auto;text-align:left;box-shadow: 0 10px 25px rgba(0,0,0,0.2);">'+
+        
+        '<div style="background:linear-gradient('+
+        '135deg,#1a6b3c,#2d9e5e);'+
+        'padding:20px 24px;'+
+        'border-radius:20px 20px 0 0;'+
+        'color:white;display:flex;'+
+        'align-items:center;'+
+        'justify-content:space-between;">'+
+        '<div style="font-size:18px;'+
+        'font-weight:700;">'+
+        '📦 '+(l?'My Orders':'Mere Orders')+
+        '</div>'+
+        '<button onclick="'+
+        'document.getElementById('+
+        '\'ac-orders-popup\').remove()" '+
+        'style="background:rgba(255,255,255,0.2);'+
+        'border:none;color:white;width:30px;'+
+        'height:30px;border-radius:50%;'+
+        'cursor:pointer;font-size:16px;line-height:30px;padding:0;">✕'+
+        '</button></div>'+
+        
+        '<div id="ac-orders-list" '+
+        'style="padding:20px;">'+
+        '<div style="text-align:center;'+
+        'padding:30px;color:#888;">'+
+        '⏳ '+(l?'Loading orders...':
+        'Orders load ho rahe hain...')+
+        '</div></div>'+
+        
+        '</div>';
+      
+      document.body.appendChild(popup);
+      
+      try {
+        var snapshot = await firebase.firestore()
+          .collection('orders')
+          .where('customerInfo.uid', '==', uid)
+          .get();
+        
+        var ordersList = document.getElementById('ac-orders-list');
+        
+        var orders = [];
+        snapshot.forEach(function(doc) {
+          orders.push(doc.data());
+        });
+
+        // Sort by createdAt desc locally (safe from indices)
+        orders.sort(function(a, b) {
+          var tA = a.createdAt ? (a.createdAt.seconds || (a.createdAt.toMillis ? a.createdAt.toMillis() / 1000 : 0)) : 0;
+          var tB = b.createdAt ? (b.createdAt.seconds || (b.createdAt.toMillis ? b.createdAt.toMillis() / 1000 : 0)) : 0;
+          return tB - tA;
+        });
+        
+        if(orders.length === 0) {
+          ordersList.innerHTML = 
+            '<div style="text-align:center;'+
+            'padding:40px;">'+
+            '<div style="font-size:48px;">📦</div>'+
+            '<div style="color:#888;'+
+            'margin-top:12px;font-size:14px;">'+
+            (l?'No orders yet!':
+            'Abhi koi order nahi!')+
+            '</div>'+
+            '<button onclick="'+
+            'document.getElementById('+
+            '\'ac-orders-popup\').remove();'+
+            'navigateToPage(\'vegetables\')" '+
+            'style="margin-top:16px;'+
+            'background:#2d6a2d;color:white;'+
+            'border:none;padding:10px 20px;'+
+            'border-radius:8px;cursor:pointer;">'+
+            (l?'Start Shopping':
+            'Shopping Shuru Karein')+
+            '</button></div>';
+          return;
+        }
+        
+        var ordersHTML = '';
+        orders.forEach(function(order) {
+          var date = '-';
+          if (order.createdAt) {
+            if (typeof order.createdAt.toDate === 'function') {
+              date = order.createdAt.toDate().toLocaleDateString();
+            } else if (order.createdAt.seconds) {
+              date = new Date(order.createdAt.seconds * 1000).toLocaleDateString();
+            }
+          }
+          
+          var statusColor = {
+            'Received': '#2196f3',
+            'Preparing': '#ff9800',
+            'On The Way': '#9c27b0',
+            'Delivered': '#4caf50'
+          };
+          
+          var statusIcon = {
+            'Received': '✅',
+            'Preparing': '⏳',
+            'On The Way': '🛵',
+            'Delivered': '📦'
+          };
+          
+          var status = order.orderStatus || 'Received';
+          
+          ordersHTML += 
+            '<div style="border:1px solid #eee;'+
+            'border-radius:12px;padding:16px;'+
+            'margin-bottom:12px;">'+
+            
+            '<div style="display:flex;'+
+            'justify-content:space-between;'+
+            'align-items:center;'+
+            'margin-bottom:12px;">'+
+            '<div style="font-weight:700;'+
+            'color:#2d6a2d;font-size:15px;">'+
+            (order.orderNumber || 'Order') +
+            '</div>'+
+            '<div style="background:'+
+            (statusColor[status]||'#2196f3')+
+            '22;color:'+
+            (statusColor[status]||'#2196f3')+
+            ';padding:4px 10px;'+
+            'border-radius:20px;font-size:12px;'+
+            'font-weight:600;">'+
+            (statusIcon[status]||'✅')+
+            ' '+status+
+            '</div></div>'+
+            
+            '<div style="font-size:12px;'+
+            'color:#888;margin-bottom:8px;">'+
+            '📅 '+date+
+            '</div>'+
+            
+            '<div style="font-size:13px;'+
+            'color:#555;margin-bottom:8px;">'+
+            '🛒 '+
+            (order.products ? order.products.length : 0)+
+            (l?' items':' products')+
+            '</div>'+
+            
+            '<div style="display:flex;'+
+            'justify-content:space-between;'+
+            'align-items:center;'+
+            'padding-top:10px;'+
+            'border-top:1px solid #f5f5f5;">'+
+            '<div style="font-weight:700;'+
+            'color:#2d6a2d;font-size:15px;">'+
+            'Rs. '+(order.orderSummary ? order.orderSummary.total : 0)+
+            '</div>'+
+            '<div style="font-size:12px;'+
+            'color:#888;">'+
+            '💳 '+(order.paymentMethod||'-')+
+            '</div></div>'+
+            
+            '</div>';
+        });
+        
+        ordersList.innerHTML = ordersHTML;
+        
+      } catch(e) {
+        document.getElementById('ac-orders-list').innerHTML = 
+          '<div style="text-align:center;'+
+          'padding:20px;color:#e74c3c;">'+
+          '❌ '+(l?'Could not load orders.':'Orders load nahi hue.')+
+          '</div>';
+      }
+    }
+
+    async function acShowPendingOrders() {
+      var menu = document.getElementById('ac-user-menu');
+      if(menu) menu.style.display = 'none';
+      
+      var user = firebase.auth().currentUser;
+      var lang = localStorage.getItem('agriconnect-lang') || 'ru';
+      var l = lang === 'en';
+      
+      var uid = user ? user.uid : '';
+      if (!uid) {
+        var userData = JSON.parse(localStorage.getItem('ac_user') || '{}');
+        uid = userData.uid || '';
+      }
+      
+      var popup = document.createElement('div');
+      popup.id = 'ac-pending-popup';
+      popup.style.cssText = 
+        'position:fixed;top:0;left:0;'+
+        'width:100%;height:100%;'+
+        'background:rgba(0,0,0,0.6);'+
+        'z-index:99999;display:flex;'+
+        'align-items:center;'+
+        'justify-content:center;padding:20px;';
+      
+      popup.innerHTML = 
+        '<div style="background:white;'+
+        'border-radius:20px;width:100%;'+
+        'max-width:520px;max-height:85vh;'+
+        'overflow-y:auto;text-align:left;box-shadow: 0 10px 25px rgba(0,0,0,0.2);">'+
+        
+        '<div style="background:linear-gradient('+
+        '135deg,#e65100,#ff9800);'+
+        'padding:20px 24px;'+
+        'border-radius:20px 20px 0 0;'+
+        'color:white;display:flex;'+
+        'align-items:center;'+
+        'justify-content:space-between;">'+
+        '<div style="font-size:18px;'+
+        'font-weight:700;">'+
+        '⏳ '+(l?'Pending Orders':'Pending Orders')+
+        '</div>'+
+        '<button onclick="'+
+        'document.getElementById('+
+        '\'ac-pending-popup\').remove()" '+
+        'style="background:rgba(255,255,255,0.2);'+
+        'border:none;color:white;width:30px;'+
+        'height:30px;border-radius:50%;'+
+        'cursor:pointer;font-size:16px;line-height:30px;padding:0;">✕'+
+        '</button></div>'+
+        
+        '<div id="ac-pending-list" '+
+        'style="padding:20px;">'+
+        '<div style="text-align:center;'+
+        'padding:30px;color:#888;">'+
+        '⏳ Loading...</div></div>'+
+        
+        '</div>';
+      
+      document.body.appendChild(popup);
+      
+      try {
+        var snapshot = await firebase.firestore()
+          .collection('orders')
+          .where('customerInfo.uid','==', uid)
+          .get();
+        
+        var list = document.getElementById('ac-pending-list');
+        
+        var orders = [];
+        snapshot.forEach(function(doc) {
+          var order = doc.data();
+          var status = order.orderStatus || 'Received';
+          if (['Received','Preparing','On The Way'].indexOf(status) !== -1) {
+            orders.push(order);
+          }
+        });
+
+        // Sort by createdAt desc safely
+        orders.sort(function(a, b) {
+          var tA = a.createdAt ? (a.createdAt.seconds || (a.createdAt.toMillis ? a.createdAt.toMillis() / 1000 : 0)) : 0;
+          var tB = b.createdAt ? (b.createdAt.seconds || (b.createdAt.toMillis ? b.createdAt.toMillis() / 1000 : 0)) : 0;
+          return tB - tA;
+        });
+        
+        if(orders.length === 0) {
+          list.innerHTML = 
+            '<div style="text-align:center;'+
+            'padding:40px;">'+
+            '<div style="font-size:48px;">✅</div>'+
+            '<div style="color:#888;'+
+            'margin-top:12px;font-size:14px;">'+
+            (l?'No pending orders!':
+            'Koi pending order nahi!')+
+            '</div></div>';
+          return;
+        }
+        
+        var html = '';
+        orders.forEach(function(order) {
+          var date = '-';
+          if (order.createdAt) {
+            if (typeof order.createdAt.toDate === 'function') {
+              date = order.createdAt.toDate().toLocaleDateString();
+            } else if (order.createdAt.seconds) {
+              date = new Date(order.createdAt.seconds * 1000).toLocaleDateString();
+            }
+          }
+          
+          html += 
+            '<div style="border:2px solid #ff980033;'+
+            'border-radius:12px;padding:16px;'+
+            'margin-bottom:12px;'+
+            'background:#fff8f0;">'+
+            
+            '<div style="display:flex;'+
+            'justify-content:space-between;'+
+            'margin-bottom:8px;">'+
+            '<div style="font-weight:700;'+
+            'color:#e65100;">'+
+            order.orderNumber+'</div>'+
+            '<div style="color:#ff9800;'+
+            'font-size:12px;font-weight:600;">'+
+            '⏳ '+order.orderStatus+
+            '</div></div>'+
+            
+            '<div style="font-size:12px;'+
+            'color:#888;margin-bottom:6px;">'+
+            '📅 '+date+'</div>'+
+            
+            '<div style="font-size:13px;'+
+            'color:#555;margin-bottom:8px;">'+
+            '📦 '+(order.products?
+              order.products.length:0)+
+            (l?' items':' products')+
+            ' • Rs.'+(order.orderSummary?
+              order.orderSummary.total:0)+
+            '</div>'+
+            
+            '<div style="font-size:12px;'+
+            'color:#e65100;">'+
+            '📍 '+
+            (order.deliveryAddress?
+              order.deliveryAddress.city:'')+ 
+            '</div>'+
+            
+            '</div>';
+        });
+        
+        list.innerHTML = html;
+        
+      } catch(e) {
+        document.getElementById('ac-pending-list').innerHTML = 
+          '<div style="color:#e74c3c;'+
+          'text-align:center;padding:20px;">'+
+          '❌ Error loading orders</div>';
+      }
+    }
+
+    async function acLogout() {
+      var menu = document.getElementById('ac-user-menu');
+      if(menu) menu.style.display = 'none';
+      
+      try {
+        await firebase.auth().signOut();
+        localStorage.removeItem('ac_user');
+        localStorage.removeItem('ac_avatar_color');
+        navigateToPage('home');
+      } catch(e) {
+        console.error('Logout error:', e);
+      }
+    }
+
+    function acShowSettings() {
+      var menu = document.getElementById('ac-user-menu');
+      if(menu) menu.style.display = 'none';
+      
+      var lang = localStorage.getItem('agriconnect-lang') || 'ru';
+      var l = lang === 'en';
+      
+      var popup = document.createElement('div');
+      popup.id = 'ac-settings-popup';
+      popup.style.cssText = 
+        'position:fixed;top:0;left:0;'+
+        'width:100%;height:100%;'+
+        'background:rgba(0,0,0,0.6);'+
+        'z-index:99999;display:flex;'+
+        'align-items:center;'+
+        'justify-content:center;padding:20px;';
+      
+      popup.innerHTML = 
+        '<div style="background:white;'+
+        'border-radius:20px;width:100%;'+
+        'max-width:400px;text-align:left;box-shadow: 0 10px 25px rgba(0,0,0,0.2);">'+
+        
+        '<div style="background:linear-gradient('+
+        '135deg,#1a6b3c,#2d9e5e);'+
+        'padding:20px 24px;'+
+        'border-radius:20px 20px 0 0;'+
+        'color:white;display:flex;'+
+        'align-items:center;'+
+        'justify-content:space-between;">'+
+        '<div style="font-size:18px;'+
+        'font-weight:700;">'+
+        '⚙️ Settings</div>'+
+        '<button onclick="'+
+        'document.getElementById('+
+        '\'ac-settings-popup\').remove()" '+
+        'style="background:rgba(255,255,255,0.2);'+
+        'border:none;color:white;width:30px;'+
+        'height:30px;border-radius:50%;'+
+        'cursor:pointer;font-size:16px;line-height:30px;padding:0;">✕'+
+        '</button></div>'+
+        
+        '<div style="padding:20px;">'+
+        
+        // Language setting
+        '<div style="margin-bottom:16px;">'+
+        '<div style="font-size:13px;'+
+        'color:#888;margin-bottom:8px;">'+
+        '🌐 '+(l?'Language':'Zuban')+
+        '</div>'+
+        '<div style="display:flex;gap:8px;">'+
+        '<button onclick="'+
+        'localStorage.setItem('+
+        '\'agriconnect-lang\',\'ru\');'+
+        'location.reload();" '+
+        'style="flex:1;padding:10px;'+
+        'border:2px solid #2d6a2d;'+
+        'border-radius:8px;cursor:pointer;'+
+        'background:'+(lang==='ru'?
+          '#2d6a2d':'white')+';'+
+        'color:'+(lang==='ru'?
+          'white':'#2d6a2d')+';">'+
+        'Roman Urdu</button>'+
+        '<button onclick="'+
+        'localStorage.setItem('+
+        '\'agriconnect-lang\',\'en\');'+
+        'location.reload();" '+
+        'style="flex:1;padding:10px;'+
+        'border:2px solid #2d6a2d;'+
+        'border-radius:8px;cursor:pointer;'+
+        'background:'+(lang==='en'?
+          '#2d6a2d':'white')+';'+
+        'color:'+(lang==='en'?
+          'white':'#2d6a2d')+';">'+
+        'English</button>'+
+        '</div></div>'+
+        
+        // Dark mode setting
+        '<div style="margin-bottom:16px;">'+
+        '<div style="font-size:13px;'+
+        'color:#888;margin-bottom:8px;">'+
+        '🌙 '+(l?'Theme':'Theme')+
+        '</div>'+
+        '<div style="display:flex;gap:8px;">'+
+        '<button onclick="'+
+        'document.documentElement.classList.remove('+
+        '\'dark\');'+
+        'localStorage.setItem('+
+        '\'agriconnect-theme\',\'light\')" '+
+        'style="flex:1;padding:10px;'+
+        'border:2px solid #ddd;'+
+        'border-radius:8px;cursor:pointer;background:white;color:#333;">'+
+        '☀️ '+(l?'Light':'Light')+
+        '</button>'+
+        '<button onclick="'+
+        'document.documentElement.classList.add('+
+        '\'dark\');'+
+        'localStorage.setItem('+
+        '\'agriconnect-theme\',\'dark\')" '+
+        'style="flex:1;padding:10px;'+
+        'border:2px solid #333;'+
+        'border-radius:8px;cursor:pointer;'+
+        'background:#333;color:white;">'+
+        '🌙 '+(l?'Dark':'Dark')+
+        '</button>'+
+        '</div></div>'+
+        
+        // Logout button
+        '<button onclick="acLogout()" '+
+        'style="width:100%;padding:12px;'+
+        'background:#fff5f5;border:2px solid '+
+        '#e74c3c;color:#e74c3c;'+
+        'border-radius:8px;cursor:pointer;'+
+        'font-size:14px;font-weight:600;">'+
+        '🚪 Logout'+
+        '</button>'+
+        
+        '</div></div>';
+      
+      document.body.appendChild(popup);
+    }
+
+    function acToggleMenu(event) {
+      if(event) event.stopPropagation();
+      var menu = document.getElementById('ac-user-menu');
+      if(!menu) return;
+      var isVisible = menu.style.display === 'block';
+      menu.style.display = isVisible ? 'none' : 'block';
+    }
+
+    // Close menu when clicked outside
+    document.addEventListener('click', function(e) {
+      if(e.target && !e.target.closest('#nav-avatar-wrap') && !e.target.closest('#ac-avatar-wrap') && !e.target.closest('#avatar-btn')) {
+        var menu = document.getElementById('ac-user-menu');
+        if(menu) menu.style.display = 'none';
+      }
+    });
+
+
+
+
+
+    // Show login popup on home page ONLY, immediately with zero delay
+    setInterval(function(){
+      var isHome = 
+        window.location.pathname === '/' ||
+        window.location.pathname === '/home' ||
+        window.location.pathname === '/index' ||
+        window.location.pathname === '' ||
+        document.body.id === 'home-page' ||
+        document.getElementById('home-page') !== null ||
+        document.getElementById('hero-section') !== null ||
+        document.getElementById('home-hero') !== null ||
+        document.querySelector('.hero-section') !== null;
+      
+      if (!isHome) {
+        var overlay = document.getElementById('lp');
+        if (overlay) overlay.remove();
+        return;
+      }
+
+      var user = localStorage.getItem('ac_user');
+      var shown = sessionStorage.getItem('lp');
+      if(user || shown) return;
+      sessionStorage.setItem('lp','1');
+      
+      var lang = localStorage.getItem(
+        'agriconnect-lang'
+      ) || 'ru';
+      var l = lang === 'en';
+      
+      var d = document.createElement('div');
+      d.id = 'lp';
+      d.style.cssText = 
+        'position:fixed;top:0;left:0;'+
+        'width:100vw;height:100vh;'+
+        'background:rgba(0,0,0,0.6);'+
+        'z-index:999999;display:flex;'+
+        'align-items:center;'+
+        'justify-content:center;'+
+        'padding:16px;';
+      
+      d.innerHTML = 
+        '<div id="ac-login-popup-card" style="background:white;'+
+        'border-radius:20px;width:100%;'+
+        'max-width:340px;overflow:hidden;'+
+        'animation:pi 0.3s ease;">'+
+        
+        '<div class="ac-popup-header" style="background:linear-gradient('+
+        '135deg,#1a6b3c,#2d9e5e);'+
+        'padding:24px;text-align:center;'+
+        'position:relative;">'+
+        '<button onclick="document.getElementById('+
+        "'lp').remove()\" "+
+        'style="position:absolute;top:10px;'+
+        'right:10px;background:rgba(255,255,255,'+
+        '0.3);border:none;color:white;'+
+        'width:28px;height:28px;border-radius:50%;'+
+        'cursor:pointer;font-size:16px;">'+
+        '✕</button>'+
+        '<div style="font-size:36px;">🌿</div>'+
+        '<div class="ac-popup-title" style="color:white;font-size:22px;'+
+        'font-weight:800;margin-top:8px;">'+
+        'AgriConnect</div>'+
+        '<div style="color:rgba(255,255,255,0.85);'+
+        'font-size:12px;margin-top:4px;">'+
+        (l?'Punjab Freshness - Right To Your Door':
+        'Punjab Ki Taazgi - Aapke Ghar Tak')+
+        '</div></div>'+
+        
+        '<div class="ac-popup-body" style="padding:20px;">'+
+        '<div style="text-align:center;'+
+        'color:#444;font-size:14px;'+
+        'font-weight:600;margin-bottom:16px;">'+
+        (l?'Login To Your Account':
+        'Apne Account Mein Login Karein')+
+        '</div>'+
+        
+        '<button onclick="'+
+        "document.getElementById('lp').remove();"+
+        'navigateToPage(\'login\')" '+
+        'style="width:100%;background:#2d6a2d;'+
+        'color:white;border:none;padding:13px;'+
+        'border-radius:10px;font-size:14px;'+
+        'font-weight:700;cursor:pointer;">'+
+        '👤 Customer Login</button>'+
+        
+        '<button onclick="'+
+        "document.getElementById('lp').remove();"+
+        'navigateToPage(\'seller-login\')" '+
+        'style="width:100%;background:#e65100;'+
+        'color:white;border:none;padding:13px;'+
+        'border-radius:10px;font-size:14px;'+
+        'font-weight:700;cursor:pointer;'+
+        'margin-top:8px;">'+
+        '🏪 Seller Login</button>'+
+        
+        '<div style="text-align:center;'+
+        'margin-top:14px;">'+
+        '<span style="color:#888;font-size:12px;">'+
+        (l?'New here? ':' Naya account? ')+
+        '</span>'+
+        '<button onclick="'+
+        "document.getElementById('lp').remove();"+
+        'navigateToPage(\'customer-register\')" '+
+        'style="background:none;border:none;'+
+        'color:#2d6a2d;font-size:13px;'+
+        'font-weight:700;cursor:pointer;">'+
+        (l?'Register Now →':
+        'Register Karein →')+
+        '</button></div>'+
+        '</div></div>';
+      
+      document.body.appendChild(d);
+      
+      d.addEventListener('click',function(e){
+        if(e.target===d) d.remove();
+      });
+    }, 100);
+
+    // Add CSS stylesheet for animation and responsiveness
+    var popupStyle = document.createElement('style');
+    popupStyle.textContent = 
+      '@keyframes pi {'+
+      '  from{opacity:0;transform:scale(0.85)}'+
+      '  to{opacity:1;transform:scale(1)}'+
+      '}'+
+      '@media (min-width: 480px) and (max-width: 768px) {'+
+      '  #ac-login-popup-card {'+
+      '    max-width: 340px !important;'+
+      '  }'+
+      '  #ac-login-popup-card .ac-popup-header {'+
+      '    padding: 24px 20px !important;'+
+      '  }'+
+      '  #ac-login-popup-card .ac-popup-body {'+
+      '    padding: 24px 20px !important;'+
+      '  }'+
+      '}'+
+      '@media (max-width: 480px) {'+
+      '  #ac-login-popup-card {'+
+      '    max-width: 95vw !important;'+
+      '    border-radius: 16px !important;'+
+      '  }'+
+      '  #ac-login-popup-card .ac-popup-header {'+
+      '    padding: 20px 16px !important;'+
+      '  }'+
+      '  #ac-login-popup-card .ac-popup-title {'+
+      '    font-size: 22px !important;'+
+      '  }'+
+      '  #ac-login-popup-card .ac-popup-body {'+
+      '    padding: 20px 16px !important;'+
+      '  }'+
+      '  #ac-login-popup-card button {'+
+      '    padding: 12px !important;'+
+      '    font-size: 14px !important;'+
+      '  }'+
+      '}';
+    document.head.appendChild(popupStyle);
+    </script>
+  </body>
+</html>
+
+
