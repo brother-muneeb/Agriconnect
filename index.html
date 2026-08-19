@@ -1899,15 +1899,12 @@
         return;
       }
 
+      if (document.getElementById('lp')) return;
+
       var user = localStorage.getItem('ac_user');
       var shown = sessionStorage.getItem('lp');
       if(user || shown) return;
       sessionStorage.setItem('lp','1');
-      
-      var lang = localStorage.getItem(
-        'agriconnect-lang'
-      ) || 'ru';
-      var l = lang === 'en';
       
       var d = document.createElement('div');
       d.id = 'lp';
@@ -1924,6 +1921,7 @@
         '<div id="ac-login-popup-card" style="background:white;'+
         'border-radius:20px;width:100%;'+
         'max-width:340px;overflow:hidden;'+
+        'box-shadow:0 20px 40px rgba(0,0,0,0.3);'+
         'animation:pi 0.3s ease;">'+
         
         '<div class="ac-popup-header" style="background:linear-gradient('+
@@ -1936,29 +1934,28 @@
         'right:10px;background:rgba(255,255,255,'+
         '0.3);border:none;color:white;'+
         'width:28px;height:28px;border-radius:50%;'+
-        'cursor:pointer;font-size:16px;">'+
+        'cursor:pointer;font-size:16px;line-height:28px;text-align:center;padding:0;">'+
         '✕</button>'+
-        '<div style="font-size:36px;">🌿</div>'+
+        '<div style="font-size:36px;">🌾</div>'+
         '<div class="ac-popup-title" style="color:white;font-size:22px;'+
         'font-weight:800;margin-top:8px;">'+
         'AgriConnect</div>'+
-        '<div style="color:rgba(255,255,255,0.85);'+
-        'font-size:12px;margin-top:4px;">'+
-        (l?'Punjab Freshness - Right To Your Door':
-        'Punjab Ki Taazgi - Aapke Ghar Tak')+
+        '<div style="color:rgba(255,255,255,0.92);'+
+        'font-size:12px;margin-top:4px;line-height:1.4;">'+
+        'Punjab Ki Taazgi - Aapke Ghar Tak<br>'+
+        '<span style="font-size:11px;opacity:0.85;">Punjab Freshness - Right To Your Door</span>'+
         '</div></div>'+
         
         '<div class="ac-popup-body" style="padding:20px;">'+
         '<div style="text-align:center;'+
         'color:#444;font-size:14px;'+
         'font-weight:600;margin-bottom:16px;">'+
-        (l?'Login To Your Account':
-        'Apne Account Mein Login Karein')+
+        'Apne Account Mein Login Karein<br><span style="font-size:11px;color:#777;font-weight:normal;">Login To Your Account</span>'+
         '</div>'+
         
         '<button onclick="'+
         "document.getElementById('lp').remove();"+
-        'navigateToPage(\'login\')" '+
+        "window.location.href='/login'\" "+
         'style="width:100%;background:#2d6a2d;'+
         'color:white;border:none;padding:13px;'+
         'border-radius:10px;font-size:14px;'+
@@ -1967,27 +1964,26 @@
         
         '<button onclick="'+
         "document.getElementById('lp').remove();"+
-        'navigateToPage(\'seller-login\')" '+
+        "window.location.href='/seller-login'\" "+
         'style="width:100%;background:#e65100;'+
         'color:white;border:none;padding:13px;'+
         'border-radius:10px;font-size:14px;'+
         'font-weight:700;cursor:pointer;'+
-        'margin-top:8px;">'+
+        'margin-top:10px;">'+
         '🏪 Seller Login</button>'+
         
         '<div style="text-align:center;'+
-        'margin-top:14px;">'+
+        'margin-top:16px;">'+
         '<span style="color:#888;font-size:12px;">'+
-        (l?'New here? ':' Naya account? ')+
+        'Naya account? / New here? '+
         '</span>'+
         '<button onclick="'+
         "document.getElementById('lp').remove();"+
-        'navigateToPage(\'customer-register\')" '+
+        "window.location.href='/customer-register'\" "+
         'style="background:none;border:none;'+
         'color:#2d6a2d;font-size:13px;'+
-        'font-weight:700;cursor:pointer;">'+
-        (l?'Register Now →':
-        'Register Karein →')+
+        'font-weight:700;cursor:pointer;text-decoration:underline;">'+
+        'Register Now →'+
         '</button></div>'+
         '</div></div>';
       

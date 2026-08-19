@@ -7,6 +7,7 @@ import KisanTips from '../components/KisanTips';
 import Gallery from '../components/Gallery';
 import Reviews from '../components/Reviews';
 import Deals from '../components/Deals';
+import HomeLoginPopup from '../components/HomeLoginPopup';
 
 const Home = () => {
   useEffect(() => {
@@ -20,6 +21,7 @@ const Home = () => {
 
   return (
     <div id="home-page">
+      <HomeLoginPopup />
       <Hero />
       <Features />
       <MandiRates />
