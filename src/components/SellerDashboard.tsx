@@ -30,6 +30,11 @@ import { doc, getDoc, updateDoc, collection, query, onSnapshot, orderBy, where }
 import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  PRODUCT_CATEGORIES, 
+  doesItemMatchSeller, 
+  filterOrderForSeller 
+} from '../utils/categoryMatcher';
 
 interface SellerData {
   uid: string;
@@ -159,7 +164,7 @@ export const SellerDashboard: React.FC = () => {
               city: uData.city || 'Punjab',
               area: uData.area || '',
               address: uData.address || '',
-              products: uData.products || ['Tamatar', 'Aalo', 'Piyaz', 'Kharbooza', 'Gandum'],
+              products: uData.products || ['Grains'],
               deliveryRange: uData.deliveryRange || 'Punjab Province',
               isApproved: true,
               avatarColor: localData.avatarColor || '#e65100'
@@ -174,7 +179,7 @@ export const SellerDashboard: React.FC = () => {
               email: localData.email || '',
               phone: localData.phone || '',
               city: localData.city || 'Punjab',
-              products: ['Tamatar', 'Aalo', 'Piyaz', 'Gandum', 'Kino'],
+              products: localData.products || ['Grains'],
               isApproved: true
             };
             setSeller(fallback);
@@ -233,6 +238,27 @@ export const SellerDashboard: React.FC = () => {
       setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } catch (err) {
       console.error('Failed to update status:', err);
+    }
+  };
+
+  // Toggle category on/off for seller
+  const handleToggleCategory = (categoryNameOrKey: string) => {
+    if (!seller) return;
+    const current = seller.products || [];
+    const exists = current.some(p => p.toLowerCase() === categoryNameOrKey.toLowerCase());
+    const updated = exists 
+      ? current.filter(p => p.toLowerCase() !== categoryNameOrKey.toLowerCase())
+      : [...current, categoryNameOrKey];
+
+    const updatedSeller = { ...seller, products: updated };
+    setSeller(updatedSeller);
+    setEditForm(prev => ({ ...prev, products: updated }));
+
+    try {
+      const sellerRef = doc(db, 'sellers', seller.uid);
+      updateDoc(sellerRef, { products: updated });
+    } catch (e) {
+      console.error('Error updating category in Firestore:', e);
     }
   };
 
@@ -309,7 +335,7 @@ export const SellerDashboard: React.FC = () => {
   const handleAddProduct = () => {
     if (!newProductInput.trim() || !seller) return;
     const currentProducts = seller.products || [];
-    if (currentProducts.includes(newProductInput.trim())) return;
+    if (currentProducts.some(p => p.toLowerCase() === newProductInput.trim().toLowerCase())) return;
 
     const updated = [...currentProducts, newProductInput.trim()];
     const updatedSeller = { ...seller, products: updated };
@@ -356,14 +382,25 @@ export const SellerDashboard: React.FC = () => {
     window.location.href = '/';
   };
 
-  // Calculate statistics
-  const totalOrdersCount = orders.length;
-  const pendingOrdersCount = orders.filter(o => o.status === 'pending' || !o.status).length;
-  const deliveredOrdersCount = orders.filter(o => o.status === 'delivered').length;
-  const totalRevenue = orders.reduce((acc, curr) => acc + (curr.orderSummary?.total || 0), 0);
+  // Process orders to filter ONLY items relevant to this seller's products/categories
+  const sellerRelevantOrders = React.useMemo(() => {
+    const sellerProds = seller?.products || [];
+    if (sellerProds.length === 0) {
+      return [];
+    }
+    return orders
+      .map(o => filterOrderForSeller(o, sellerProds))
+      .filter((o): o is NonNullable<typeof o> => o !== null);
+  }, [orders, seller?.products]);
 
-  // Filter orders
-  const filteredOrders = orders.filter(o => {
+  // Calculate statistics from seller's relevant orders only
+  const totalOrdersCount = sellerRelevantOrders.length;
+  const pendingOrdersCount = sellerRelevantOrders.filter(o => o.status === 'pending' || !o.status).length;
+  const deliveredOrdersCount = sellerRelevantOrders.filter(o => o.status === 'delivered').length;
+  const totalRevenue = sellerRelevantOrders.reduce((acc, curr) => acc + (curr.sellerTotal || 0), 0);
+
+  // Filter orders by search & status
+  const filteredOrders = sellerRelevantOrders.filter(o => {
     if (orderFilter !== 'all' && (o.status || 'pending') !== orderFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -498,7 +535,7 @@ export const SellerDashboard: React.FC = () => {
             }`}
           >
             <ShoppingBag className="w-4 h-4" />
-            {isUrdu ? `Orders (${orders.length})` : `Orders (${orders.length})`}
+            {isUrdu ? `Orders (${totalOrdersCount})` : `Orders (${totalOrdersCount})`}
           </button>
 
           <button
@@ -523,6 +560,37 @@ export const SellerDashboard: React.FC = () => {
           >
             <Store className="w-4 h-4" />
             {isUrdu ? 'Shop Details' : 'Shop Details'}
+          </button>
+        </div>
+
+        {/* Category Relevance Filter Banner */}
+        <div className="mb-6 bg-gradient-to-r from-orange-50 to-amber-50 dark:from-gray-800 dark:to-gray-850 border border-orange-200 dark:border-gray-700 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-sm shadow-sm">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-agri-orange text-white flex items-center justify-center font-bold flex-shrink-0 shadow-sm">
+              <Filter className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-gray-900 dark:text-white">
+                  {isUrdu ? 'Aapke Mutalliqah Orders Filter:' : 'Category Order Routing:'}
+                </span>
+                <span className="bg-orange-100 dark:bg-orange-950/60 text-agri-orange font-extrabold px-2.5 py-0.5 rounded-full text-xs border border-orange-300 dark:border-orange-800">
+                  {(seller?.products && seller.products.length > 0) ? seller.products.join(', ') : 'All Agricultural Products'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {isUrdu 
+                  ? 'Aapko sirf wahi orders dikhai denge jo aapke chune hue categories (jaise Anaaj / Grains) ke mutabiq hain. Dusri cheezein (jaise Sabziyaan, Phal) doosray sellers ko routed hain.'
+                  : 'You only receive orders for items you have chosen to sell (e.g. Grains). Unrelated items (e.g. Onions, Vegetables) are routed to their respective sellers.'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('products')}
+            className="text-xs font-bold bg-white dark:bg-gray-800 text-agri-orange hover:bg-orange-50 dark:hover:bg-gray-700 border border-orange-200 dark:border-gray-600 px-3.5 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            {isUrdu ? 'Categories Badlein' : 'Manage Categories'}
           </button>
         </div>
 
@@ -669,14 +737,16 @@ export const SellerDashboard: React.FC = () => {
                   <div className="w-8 h-8 border-3 border-agri-orange border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
                   {isUrdu ? 'Orders load ho rahe hain...' : 'Loading orders...'}
                 </div>
-              ) : orders.length === 0 ? (
+              ) : sellerRelevantOrders.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
                   <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                   <p className="font-bold text-gray-700 dark:text-gray-300">
-                    {isUrdu ? 'Abhi tak koi naya order nahi aaya.' : 'No orders received yet.'}
+                    {isUrdu ? 'Aapke selected products ke liye koi naya order nahi aaya.' : 'No orders for your listed categories yet.'}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {isUrdu ? 'Jab customer order place karega, yahan live show hoga.' : 'New orders will automatically appear here in real-time.'}
+                  <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
+                    {isUrdu 
+                      ? 'Jab customer aapke category ke products order karega, yahan live show hoga. Dusri categories (jaise Sabziyaan/Phal) unke mutalliqah sellers ko dikhayi deti hain.' 
+                      : 'Orders containing your products will automatically appear here in real-time. Orders for other categories (e.g. Vegetables, Fruits) are routed to their respective sellers.'}
                   </p>
                 </div>
               ) : (
@@ -686,14 +756,14 @@ export const SellerDashboard: React.FC = () => {
                       <tr className="border-b border-gray-100 dark:border-gray-700 text-gray-400 text-xs uppercase font-semibold">
                         <th className="pb-3">Order ID</th>
                         <th className="pb-3">{isUrdu ? 'Customer' : 'Customer'}</th>
-                        <th className="pb-3">{isUrdu ? 'Items' : 'Items'}</th>
-                        <th className="pb-3">{isUrdu ? 'Total' : 'Total'}</th>
+                        <th className="pb-3">{isUrdu ? 'Your Products' : 'Your Items'}</th>
+                        <th className="pb-3">{isUrdu ? 'Your Total' : 'Your Subtotal'}</th>
                         <th className="pb-3">{isUrdu ? 'Status' : 'Status'}</th>
                         <th className="pb-3 text-right">{isUrdu ? 'Action' : 'Action'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {orders.slice(0, 5).map((ord) => (
+                      {sellerRelevantOrders.slice(0, 5).map((ord) => (
                         <tr key={ord.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-750 transition-colors">
                           <td className="py-4 font-mono font-bold text-agri-orange">
                             #{ord.orderNumber}
@@ -707,14 +777,19 @@ export const SellerDashboard: React.FC = () => {
                             </div>
                           </td>
                           <td className="py-4">
-                            <div className="text-gray-700 dark:text-gray-300 max-w-xs truncate">
-                              {ord.products && ord.products.length > 0 
-                                ? ord.products.map(p => `${p.name} (${p.quantity}x)`).join(', ')
+                            <div className="text-gray-700 dark:text-gray-300 max-w-xs truncate font-medium">
+                              {ord.sellerItems && ord.sellerItems.length > 0 
+                                ? ord.sellerItems.map(p => `${p.name} (${p.quantity}x)`).join(', ')
                                 : 'Fresh Farm Items'}
                             </div>
+                            {ord.products && ord.sellerItems && ord.products.length > ord.sellerItems.length && (
+                              <div className="text-[10px] text-gray-400 italic mt-0.5">
+                                +{ord.products.length - ord.sellerItems.length} other items in order (other sellers)
+                              </div>
+                            )}
                           </td>
                           <td className="py-4 font-bold text-gray-900 dark:text-white">
-                            Rs. {(ord.orderSummary?.total || 0).toLocaleString()}
+                            Rs. {(ord.sellerTotal || ord.orderSummary?.total || 0).toLocaleString()}
                           </td>
                           <td className="py-4">
                             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize ${
@@ -852,20 +927,31 @@ export const SellerDashboard: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Ordered Items */}
-                    <div className="bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700 text-xs space-y-1.5">
-                      <div className="font-semibold text-gray-500 dark:text-gray-400 mb-1">
-                        {isUrdu ? 'Products List:' : 'Ordered Products:'}
+                    {/* Ordered Items Matching Seller */}
+                    <div className="bg-white dark:bg-gray-800 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs space-y-2">
+                      <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 font-semibold mb-1">
+                        <span>{isUrdu ? 'Aapke Products (Items for you):' : 'Your Matched Products:'}</span>
+                        <span className="text-[11px] text-agri-orange font-bold">
+                          {(ord.sellerItems || []).length} {isUrdu ? 'items' : 'item(s)'}
+                        </span>
                       </div>
-                      {ord.products && ord.products.map((item, i) => (
-                        <div key={i} className="flex items-center justify-between text-gray-700 dark:text-gray-300">
-                          <span>• {item.name} {item.weight ? `(${item.weight})` : ''} x {item.quantity}</span>
+                      {(ord.sellerItems && ord.sellerItems.length > 0 ? ord.sellerItems : (ord.products || [])).map((item, i) => (
+                        <div key={i} className="flex items-center justify-between text-gray-800 dark:text-gray-200 py-0.5">
+                          <span className="font-medium">• {item.name} {item.weight ? `(${item.weight})` : ''} <span className="text-gray-500 font-normal">x {item.quantity}</span></span>
                           <span className="font-bold">Rs. {item.totalPrice || item.finalPrice || 0}</span>
                         </div>
                       ))}
+                      
+                      {ord.products && ord.sellerItems && ord.products.length > ord.sellerItems.length && (
+                        <div className="bg-gray-50 dark:bg-gray-750 px-2.5 py-1.5 rounded-lg text-[11px] text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                          <span>+ {ord.products.length - ord.sellerItems.length} other items in customer cart</span>
+                          <span className="text-[10px] text-gray-400">Routed to other sellers</span>
+                        </div>
+                      )}
+
                       <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-2 flex items-center justify-between font-bold text-sm text-gray-900 dark:text-white">
-                        <span>{isUrdu ? 'Kul Raqam (Total):' : 'Total Amount:'}</span>
-                        <span className="text-agri-orange">Rs. {(ord.orderSummary?.total || 0).toLocaleString()}</span>
+                        <span>{isUrdu ? 'Aapka Hissa (Your Total):' : 'Your Order Total:'}</span>
+                        <span className="text-agri-orange text-base font-extrabold">Rs. {(ord.sellerTotal || ord.orderSummary?.total || 0).toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -911,73 +997,130 @@ export const SellerDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 3: PRODUCTS MANAGEMENT */}
+        {/* TAB 3: PRODUCTS & CATEGORIES MANAGEMENT */}
         {activeTab === 'products' && (
           <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700 shadow-sm space-y-8">
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {isUrdu ? 'Aapki Dastyab Products aur Categories' : 'Products & Crops You Sell'}
+                {isUrdu ? 'Aapki Dastyab Products aur Categories' : 'Products & Categories You Sell'}
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                {isUrdu ? 'Nayi sabziyaan, phal, ya anaaj add karein jo aapke pas dastyab hain.' : 'Add or remove the agricultural items and crops you offer.'}
+                {isUrdu 
+                  ? 'Select karein ke aap kaunsi categories (e.g. Grains / Anaaj, Vegetables / Sabziyaan) aur specific items sell karte hain. Customer ke sirf mutalliqah orders aapko nazar aayenge.' 
+                  : 'Select which categories and products you offer. Only orders matching your selections will be routed to your account.'}
               </p>
             </div>
 
-            {/* Add product input bar */}
-            <div className="flex items-center gap-3 max-w-xl">
-              <input
-                type="text"
-                value={newProductInput}
-                onChange={(e) => setNewProductInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddProduct()}
-                placeholder={isUrdu ? 'Product ka naam likhein (e.g. Desi Ghee, Makai, Aalo)...' : 'Type product name (e.g. Organic Wheat, Fresh Mangoes)...'}
-                className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-agri-orange"
-              />
-              <button
-                onClick={handleAddProduct}
-                className="bg-agri-orange hover:bg-orange-600 text-white font-bold px-5 py-3 rounded-xl text-sm flex items-center gap-2 shadow-md transition-all"
-              >
-                <Plus className="w-4 h-4" />
-                {isUrdu ? 'Add Product' : 'Add Item'}
-              </button>
+            {/* Quick Category Selectors */}
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-gray-800 dark:text-gray-200">
+                {isUrdu ? 'Categories Select Karein (Orders Filtering):' : 'Main Agricultural Categories (Controls Order Routing):'}
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {PRODUCT_CATEGORIES.map((cat) => {
+                  const isSelected = (seller?.products || []).some(
+                    p => p.toLowerCase() === cat.key.toLowerCase() || 
+                         p.toLowerCase() === cat.labelEN.toLowerCase() || 
+                         p.toLowerCase() === cat.labelRU.toLowerCase()
+                  );
+                  return (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => handleToggleCategory(cat.key)}
+                      className={`p-3.5 rounded-2xl border text-left transition-all flex items-start justify-between ${
+                        isSelected
+                          ? 'border-agri-orange bg-orange-50/60 dark:bg-orange-950/30 ring-2 ring-agri-orange/30'
+                          : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="text-xl">{cat.icon}</div>
+                        <div className="font-bold text-sm text-gray-900 dark:text-white">
+                          {isUrdu ? cat.labelRU : cat.labelEN}
+                        </div>
+                        <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                          {isUrdu ? cat.labelEN : cat.labelRU}
+                        </div>
+                      </div>
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center text-xs font-bold transition-colors ${
+                        isSelected 
+                          ? 'bg-agri-orange text-white' 
+                          : 'border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                      }`}>
+                        {isSelected && <Check className="w-3.5 h-3.5" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Current Products Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4">
-              {(seller?.products && seller.products.length > 0) ? (
-                seller.products.map((p, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-agri-orange transition-all group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/40 text-agri-orange flex items-center justify-center font-bold">
-                        🌱
-                      </div>
-                      <div>
-                        <div className="font-bold text-gray-900 dark:text-white text-base">
-                          {p}
-                        </div>
-                        <span className="text-xs text-green-600 font-medium">
-                          {isUrdu ? 'In Stock / Dastyab' : 'In Stock'}
-                        </span>
-                      </div>
-                    </div>
+            {/* Custom product tag adder */}
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-3">
+              <label className="block text-sm font-bold text-gray-800 dark:text-gray-200">
+                {isUrdu ? 'Specific Faslain ya Products Add Karein:' : 'Add Specific Items & Crops:'}
+              </label>
+              <div className="flex items-center gap-3 max-w-xl">
+                <input
+                  type="text"
+                  value={newProductInput}
+                  onChange={(e) => setNewProductInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddProduct()}
+                  placeholder={isUrdu ? 'Product ka naam (e.g. Desi Gandum, Makai, Basmati Rice)...' : 'Type product name (e.g. Organic Wheat, Basmati Rice)...'}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm focus:outline-none focus:ring-2 focus:ring-agri-orange"
+                />
+                <button
+                  onClick={handleAddProduct}
+                  className="bg-agri-orange hover:bg-orange-600 text-white font-bold px-5 py-3 rounded-xl text-sm flex items-center gap-2 shadow-md transition-all whitespace-nowrap"
+                >
+                  <Plus className="w-4 h-4" />
+                  {isUrdu ? 'Add Item' : 'Add Item'}
+                </button>
+              </div>
+            </div>
 
-                    <button
-                      onClick={() => handleRemoveProduct(p)}
-                      className="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
-                      title="Remove product"
+            {/* Current Active Products & Tags Grid */}
+            <div className="space-y-3">
+              <label className="block text-sm font-bold text-gray-800 dark:text-gray-200">
+                {isUrdu ? 'Aapke Active Items aur Categories:' : 'Currently Active on Your Shop:'}
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {(seller?.products && seller.products.length > 0) ? (
+                  seller.products.map((p, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-3.5 rounded-2xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-agri-orange transition-all group"
                     >
-                      <X className="w-4 h-4" />
-                    </button>
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-orange-100 dark:bg-orange-950/40 text-agri-orange flex items-center justify-center font-bold">
+                          🌱
+                        </div>
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white text-sm">
+                            {p}
+                          </div>
+                          <span className="text-[11px] text-green-600 font-medium">
+                            {isUrdu ? 'Active & Filtered' : 'Active for orders'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleRemoveProduct(p)}
+                        className="text-gray-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                        title="Remove product"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                ) : (
+                  <div className="col-span-full py-8 text-center text-gray-400 border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
+                    {isUrdu ? 'Koi category ya product select nahi kiya gaya.' : 'No products or categories listed yet. Click a category above to start receiving orders.'}
                   </div>
-                ))
-              ) : (
-                <div className="col-span-full py-12 text-center text-gray-400">
-                  {isUrdu ? 'Koi product add nahi kiya gaya.' : 'No products listed yet.'}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1154,6 +1297,47 @@ export const SellerDashboard: React.FC = () => {
                     onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                     className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-agri-orange"
                   />
+                </div>
+
+                {/* Product Categories in Edit Modal */}
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
+                    {isUrdu ? 'Aapki Selling Categories (Order Routing)' : 'Products & Categories You Sell'}
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {PRODUCT_CATEGORIES.map((cat) => {
+                      const isChecked = (editForm.products || seller?.products || []).some(
+                        p => p.toLowerCase() === cat.key.toLowerCase() || 
+                             p.toLowerCase() === cat.labelEN.toLowerCase() || 
+                             p.toLowerCase() === cat.labelRU.toLowerCase()
+                      );
+                      return (
+                        <button
+                          key={cat.key}
+                          type="button"
+                          onClick={() => {
+                            const current = editForm.products || seller?.products || [];
+                            const exists = current.some(p => p.toLowerCase() === cat.key.toLowerCase());
+                            const updated = exists 
+                              ? current.filter(p => p.toLowerCase() !== cat.key.toLowerCase())
+                              : [...current, cat.key];
+                            setEditForm({ ...editForm, products: updated });
+                          }}
+                          className={`p-2.5 rounded-xl border text-left text-xs font-bold flex items-center justify-between transition-colors ${
+                            isChecked
+                              ? 'border-agri-orange bg-orange-50 text-agri-orange dark:bg-orange-950/40'
+                              : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800'
+                          }`}
+                        >
+                          <span className="flex items-center gap-1.5 truncate">
+                            <span>{cat.icon}</span>
+                            <span>{isUrdu ? cat.labelRU : cat.labelEN}</span>
+                          </span>
+                          {isChecked && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-800">
