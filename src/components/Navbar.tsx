@@ -320,6 +320,24 @@ const Navbar = () => {
 
                         {/* Options */}
                         <div className="py-2 text-sm text-gray-700 dark:text-gray-200">
+                          {userRole === 'seller' && (
+                            <Link
+                              to="/seller-dashboard"
+                              onClick={() => { setShowAvatarDropdown(false); setIsMobileMenuOpen(false); }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-orange-50 dark:hover:bg-orange-950/30 flex items-center gap-3 transition-colors cursor-pointer text-agri-orange"
+                            >
+                              <span className="text-lg">🏪</span>
+                              <div>
+                                <p className="font-semibold text-xs text-agri-orange font-bold">
+                                  {language === 'romanUrdu' ? 'Seller Dashboard' : 'Seller Dashboard'}
+                                </p>
+                                <p className="text-[10px] text-gray-400">
+                                  {language === 'romanUrdu' ? 'Orders & shop manage karein' : 'Manage orders & shop'}
+                                </p>
+                              </div>
+                            </Link>
+                          )}
+
                           <button
                             onClick={handleShowProfile}
                             className="w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-3 transition-colors cursor-pointer"
@@ -511,12 +529,22 @@ const Navbar = () => {
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 pt-1">
-                        <button
-                          onClick={handleShowProfile}
-                          className="py-1.5 px-2 bg-white dark:bg-gray-700 text-xs font-semibold rounded-lg shadow-xs text-gray-700 dark:text-gray-200 text-center cursor-pointer"
-                        >
-                          Profile
-                        </button>
+                        {userRole === 'seller' ? (
+                          <Link
+                            to="/seller-dashboard"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="py-1.5 px-2 bg-orange-100 dark:bg-orange-950/50 text-xs font-bold rounded-lg shadow-xs text-agri-orange text-center cursor-pointer"
+                          >
+                            Dashboard
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={handleShowProfile}
+                            className="py-1.5 px-2 bg-white dark:bg-gray-700 text-xs font-semibold rounded-lg shadow-xs text-gray-700 dark:text-gray-200 text-center cursor-pointer"
+                          >
+                            Profile
+                          </button>
+                        )}
                         <button
                           onClick={handleShowOrders}
                           className="py-1.5 px-2 bg-white dark:bg-gray-700 text-xs font-semibold rounded-lg shadow-xs text-gray-700 dark:text-gray-200 text-center cursor-pointer"

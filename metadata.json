@@ -2,5 +2,7 @@
   "name": "AgriConnect",
   "description": "A professional agriculture e-commerce platform for Punjab, Pakistan, connecting farmers and consumers with fresh produce and mandi rates.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

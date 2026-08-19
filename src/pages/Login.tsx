@@ -216,9 +216,23 @@ const Login = () => {
 
       const userData = userDoc.data();
 
+      // Check if user is in sellers collection
+      let sellerData: any = null;
+      try {
+        const sellerDoc = await firebase.firestore().collection('sellers').doc(user.uid).get();
+        if (sellerDoc.exists) {
+          sellerData = sellerDoc.data();
+        }
+      } catch (sErr) {
+        console.warn('Seller check note:', sErr);
+      }
+
+      const finalUserType = (isSellerLogin || sellerData || userData.userType === 'seller') ? 'seller' : (userData.userType || 'customer');
+
       // Update last login
       await firebase.firestore().collection('users').doc(user.uid).update({
-        lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+        lastLogin: firebase.firestore.FieldValue.serverTimestamp(),
+        userType: finalUserType
       });
 
       // Permanent color system
@@ -233,12 +247,14 @@ const Login = () => {
 
       localStorage.setItem('ac_user', JSON.stringify({
         uid: user.uid,
-        fullName: userData.fullName,
+        fullName: userData.fullName || sellerData?.ownerName || '',
         email: userData.email,
-        userType: userData.userType,
-        phone: userData.phone || '',
-        city: userData.city || '',
-        loginMethod: 'email'
+        userType: finalUserType,
+        shopName: sellerData?.shopName || userData.shopName || '',
+        phone: userData.phone || sellerData?.phone || '',
+        city: userData.city || sellerData?.city || '',
+        loginMethod: 'email',
+        avatarColor: savedColor
       }));
 
       setErrorMessage({ 

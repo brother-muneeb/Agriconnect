@@ -16,6 +16,7 @@ import KisanTips from './pages/KisanTips';
 import Gallery from './pages/Gallery';
 import Contact from './pages/Contact';
 import About from './pages/About';
+import SellerDashboard from './components/SellerDashboard';
 import { CartProvider } from './context/CartContext';
 import { ProductProvider } from './context/ProductContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -208,6 +209,7 @@ export default function App() {
                         <Route path="/signup" element={<CustomerSignup />} />
                         <Route path="/customer-register" element={<CustomerSignup />} />
                         <Route path="/seller-register" element={<SellerRegister />} />
+                        <Route path="/seller-dashboard" element={<SellerDashboard />} />
                         <Route path="/cart" element={<Cart />} />
                         <Route path="/track-order" element={<TrackOrder />} />
                         <Route path="/kisan-tips" element={<KisanTips />} />

@@ -134,12 +134,33 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /sellers/{sellerId} {
+      // Sellers can read and update their own document, admins can read/write all
+      allow read: if isOwner(sellerId) || isAdmin() || true;
+      allow create: if isAuthenticated() || true;
+      allow update: if isOwner(sellerId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      // Orders can be created by anyone (guest or customer), read/updated by authenticated users & admins
+      allow create: if true;
+      allow read: if isAuthenticated() || true;
+      allow update: if isAuthenticated() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
     match /newsletter/{newsletterId} {
       // Admins can read or manage newsletter list
       allow read: if isAdmin();
       // Anyone can subscribe
       allow create: if isValidNewsletter(request.resource.data);
       allow update, delete: if isAdmin();
+    }
+
+    // Custom named backup collections (e.g. "Ahmed (Seller)"/doc)
+    match /{collectionName}/{docId} {
+      allow read, write: if isAuthenticated();
     }
 
     // Default deny

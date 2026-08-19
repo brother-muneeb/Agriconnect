@@ -20,6 +20,48 @@
       },
       "required": ["id", "name", "nameEnglish", "category", "price", "unit", "image", "description", "rating"]
     },
+    "Seller": {
+      "title": "Seller",
+      "description": "Registered seller profile in the AgriConnect marketplace",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "cnic": { "type": "string" },
+        "shopName": { "type": "string" },
+        "businessType": { "type": "string" },
+        "city": { "type": "string" },
+        "area": { "type": "string" },
+        "address": { "type": "string" },
+        "landmark": { "type": "string" },
+        "products": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "deliveryRange": { "type": "string" },
+        "isApproved": { "type": "boolean" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["uid", "ownerName", "email", "shopName"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order record",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string" },
+        "orderDate": { "type": "string" },
+        "customerInfo": { "type": "object" },
+        "deliveryAddress": { "type": "object" },
+        "products": { "type": "array", "items": { "type": "object" } },
+        "orderSummary": { "type": "object" },
+        "status": { "type": "string" }
+      },
+      "required": ["orderNumber", "customerInfo", "products", "orderSummary"]
+    },
     "User": {
       "title": "User",
       "description": "A user of the application",
@@ -47,6 +89,14 @@
     "/products/{productId}": {
       "schema": "Product",
       "description": "Collection of products"
+    },
+    "/sellers/{sellerId}": {
+      "schema": "Seller",
+      "description": "Collection of registered sellers"
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Collection of orders"
     },
     "/users/{userId}": {
       "schema": "User",
