@@ -793,19 +793,11 @@
       }
     });
 
-    function navigateToPage(path) {
-      if (path === 'home') {
+    function navigateToPage(pageName) {
+      if (pageName === 'home') {
         window.location.href = '/';
-      } else if (path === 'login') {
-        window.location.href = '/login';
-      } else if (path === 'seller-login') {
-        window.location.href = '/login?role=seller';
-      } else if (path === 'customer-register') {
-        window.location.href = '/signup';
-      } else if (path === 'vegetables') {
-        window.location.href = '/sabziyaan';
       } else {
-        window.location.href = '/' + path;
+        window.location.href = '/' + pageName;
       }
     }
 

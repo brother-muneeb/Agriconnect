@@ -29,7 +29,7 @@ const Login = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('role') === 'seller' || params.get('type') === 'seller') {
+    if (params.get('role') === 'seller' || params.get('type') === 'seller' || window.location.pathname.includes('seller')) {
       setIsSellerLogin(true);
     }
   }, []);

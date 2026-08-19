@@ -199,11 +199,14 @@ export default function App() {
                       <Routes>
                         <Route path="/" element={<Home />} />
                         <Route path="/sabziyaan" element={<Vegetables />} />
+                        <Route path="/vegetables" element={<Vegetables />} />
                         <Route path="/phal" element={<Fruits />} />
                         <Route path="/dry-fruits" element={<DryFruits />} />
                         <Route path="/anaaj" element={<Grains />} />
                         <Route path="/login" element={<Login />} />
+                        <Route path="/seller-login" element={<Login />} />
                         <Route path="/signup" element={<CustomerSignup />} />
+                        <Route path="/customer-register" element={<CustomerSignup />} />
                         <Route path="/seller-register" element={<SellerRegister />} />
                         <Route path="/cart" element={<Cart />} />
                         <Route path="/track-order" element={<TrackOrder />} />
