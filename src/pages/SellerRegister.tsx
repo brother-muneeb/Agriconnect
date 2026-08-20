@@ -49,6 +49,12 @@ const SellerRegister = () => {
   const [activeCategory, setActiveCategory] = useState<'Vegetables' | 'Fruits' | 'Dry Fruits' | 'Grains' | null>(null);
   const [selectedOtherProducts, setSelectedOtherProducts] = useState<string[]>([]);
 
+  // Terms and Permission Checkboxes state
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+  const [permissionAccepted, setPermissionAccepted] = useState(false);
+  const [permissionError, setPermissionError] = useState(false);
+
   const OTHER_CATEGORIES_DATA: Record<'Vegetables' | 'Fruits' | 'Dry Fruits' | 'Grains', { nameEN: string; nameRU: string; items: string[] }> = {
     Vegetables: {
       nameEN: 'Vegetables',
@@ -492,6 +498,40 @@ const SellerRegister = () => {
       return; 
     }
     if(!shopName) { acShowSellerMsg('Dukaan ya farm ka naam likhein!', 'error'); return; }
+
+    // Checkbox validations for Terms & Conditions and Permission
+    let hasCheckboxError = false;
+    if (!termsAccepted) {
+      setTermsError(true);
+      hasCheckboxError = true;
+    }
+    if (!permissionAccepted) {
+      setPermissionError(true);
+      hasCheckboxError = true;
+    }
+
+    if (hasCheckboxError) {
+      if (!termsAccepted) {
+        const el = document.getElementById('seller-terms-item');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        acShowSellerMsg(
+          language === 'romanUrdu' 
+            ? 'Terms and Conditions accept karna zaroori hai!' 
+            : 'Must accept Terms and Conditions!',
+          'error'
+        );
+      } else if (!permissionAccepted) {
+        const el = document.getElementById('seller-permission-item');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        acShowSellerMsg(
+          language === 'romanUrdu' 
+            ? 'AgriConnect ko apni shop/farm ki information dikhane ki ijazat dena zaroori hai!' 
+            : 'Must give permission to show your shop/farm information!',
+          'error'
+        );
+      }
+      return;
+    }
     
     // Check connection before Firebase auth call
     var isOnline = await checkConnection();
@@ -1136,16 +1176,69 @@ const SellerRegister = () => {
               </div>
             </div>
 
-            {/* Terms */}
+            {/* Terms & Permissions */}
             <div className="space-y-4 bg-gray-50 p-8 rounded-[2rem] border border-gray-100">
-              <label className="flex items-start gap-4 cursor-pointer group">
-                <input type="checkbox" required className="mt-1 w-6 h-6 rounded border-gray-300 text-agri-orange focus:ring-agri-orange" />
-                <span className="text-gray-600 font-medium">{t.terms}</span>
-              </label>
-              <label className="flex items-start gap-4 cursor-pointer group">
-                <input type="checkbox" required className="mt-1 w-6 h-6 rounded border-gray-300 text-agri-orange focus:ring-agri-orange" />
-                <span className="text-gray-600 font-medium">{t.permission}</span>
-              </label>
+              {/* First Checkbox: Terms */}
+              <div 
+                id="seller-terms-item" 
+                className={`p-4 rounded-2xl transition-all ${
+                  termsError ? 'border-2 border-[#e74c3c] bg-[#fff5f5]' : 'border border-transparent'
+                }`}
+              >
+                <label className="flex items-start gap-4 cursor-pointer group">
+                  <input 
+                    id="seller-terms-checkbox"
+                    type="checkbox" 
+                    checked={termsAccepted}
+                    onChange={(e) => {
+                      setTermsAccepted(e.target.checked);
+                      if (e.target.checked) setTermsError(false);
+                    }}
+                    className={`mt-1 w-6 h-6 rounded text-agri-orange focus:ring-agri-orange ${
+                      termsError ? 'border-[#e74c3c] ring-2 ring-[#e74c3c]' : 'border-gray-300'
+                    }`}
+                  />
+                  <span className={`font-medium ${termsError ? 'text-[#c0392b] font-bold' : 'text-gray-600'}`}>{t.terms}</span>
+                </label>
+                {termsError && (
+                  <p className="mt-2 text-xs font-bold text-[#e74c3c] ml-10 animate-in fade-in slide-in-from-top-1">
+                    {language === 'romanUrdu' 
+                      ? 'Terms and Conditions accept karna zaroori hai!' 
+                      : 'Must accept Terms and Conditions!'}
+                  </p>
+                )}
+              </div>
+
+              {/* Second Checkbox: Shop / Farm Permission */}
+              <div 
+                id="seller-permission-item" 
+                className={`p-4 rounded-2xl transition-all ${
+                  permissionError ? 'border-2 border-[#e74c3c] bg-[#fff5f5]' : 'border border-transparent'
+                }`}
+              >
+                <label className="flex items-start gap-4 cursor-pointer group">
+                  <input 
+                    id="seller-permission-checkbox"
+                    type="checkbox" 
+                    checked={permissionAccepted}
+                    onChange={(e) => {
+                      setPermissionAccepted(e.target.checked);
+                      if (e.target.checked) setPermissionError(false);
+                    }}
+                    className={`mt-1 w-6 h-6 rounded text-agri-orange focus:ring-agri-orange ${
+                      permissionError ? 'border-[#e74c3c] ring-2 ring-[#e74c3c]' : 'border-gray-300'
+                    }`}
+                  />
+                  <span className={`font-medium ${permissionError ? 'text-[#c0392b] font-bold' : 'text-gray-600'}`}>{t.permission}</span>
+                </label>
+                {permissionError && (
+                  <p className="mt-2 text-xs font-bold text-[#e74c3c] ml-10 animate-in fade-in slide-in-from-top-1">
+                    {language === 'romanUrdu' 
+                      ? 'AgriConnect ko apni shop/farm ki information dikhane ki ijazat dena zaroori hai!' 
+                      : 'Must give permission to show your shop/farm information!'}
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="space-y-8">

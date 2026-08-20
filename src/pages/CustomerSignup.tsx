@@ -24,6 +24,9 @@ const CustomerSignup = () => {
   const [whatsapp, setWhatsapp] = useState('');
   const [whatsappTouched, setWhatsappTouched] = useState(false);
 
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsError, setTermsError] = useState(false);
+
   const acValidateEmail = (val: string) => {
     if(!val) {
       return language === 'romanUrdu' ? 'Email likhna zaroori hai!' : 'Email is required!';
@@ -229,6 +232,19 @@ const CustomerSignup = () => {
     if(whatsappErrVal) {
       setWhatsappTouched(true);
       acShowSignupMsg(whatsappErrVal, 'error');
+      return;
+    }
+
+    if (!termsAccepted) {
+      setTermsError(true);
+      const termsEl = document.getElementById('customer-terms-container');
+      if (termsEl) termsEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      acShowSignupMsg(
+        language === 'romanUrdu' 
+          ? 'AgriConnect ki Terms and Conditions accept karna zaroori hai!' 
+          : 'You must accept AgriConnect Terms and Conditions!', 
+        'error'
+      );
       return;
     }
     
@@ -557,11 +573,38 @@ const CustomerSignup = () => {
             </div>
 
             {/* Terms */}
-            <div className="space-y-4 bg-gray-50 p-6 rounded-3xl border border-gray-100">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <input type="checkbox" required className="mt-1 w-5 h-5 rounded border-gray-300 text-agri-green focus:ring-agri-green" />
-                <span className="text-sm text-gray-600">{t.terms}</span>
-              </label>
+            <div 
+              id="customer-terms-container"
+              className={`space-y-4 bg-gray-50 p-6 rounded-3xl border transition-all ${
+                termsError 
+                  ? 'border-[#e74c3c] bg-[#fff5f5] ring-2 ring-[#e74c3c]/20' 
+                  : 'border-gray-100'
+              }`}
+            >
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <input 
+                    id="customer-terms-checkbox"
+                    type="checkbox" 
+                    checked={termsAccepted}
+                    onChange={(e) => {
+                      setTermsAccepted(e.target.checked);
+                      if (e.target.checked) setTermsError(false);
+                    }}
+                    className={`mt-1 w-5 h-5 rounded text-agri-green focus:ring-agri-green ${
+                      termsError ? 'border-[#e74c3c] ring-2 ring-[#e74c3c]' : 'border-gray-300'
+                    }`}
+                  />
+                  <span className={`text-sm ${termsError ? 'text-[#c0392b] font-bold' : 'text-gray-600'}`}>{t.terms}</span>
+                </label>
+                {termsError && (
+                  <p className="mt-2 text-xs font-bold text-[#e74c3c] ml-8 animate-in fade-in slide-in-from-top-1">
+                    {language === 'romanUrdu' 
+                      ? 'AgriConnect ki Terms and Conditions accept karna zaroori hai!' 
+                      : 'You must accept AgriConnect Terms and Conditions!'}
+                  </p>
+                )}
+              </div>
               <label className="flex items-start gap-3 cursor-pointer group">
                 <input type="checkbox" className="mt-1 w-5 h-5 rounded border-gray-300 text-agri-green focus:ring-agri-green" />
                 <span className="text-sm text-gray-600">{t.offers}</span>
