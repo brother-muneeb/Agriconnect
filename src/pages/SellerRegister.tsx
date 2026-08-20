@@ -43,17 +43,103 @@ const SellerRegister = () => {
     return {};
   };
 
-  // Products & Other Products dropdown state
+  // Products & Other Products category list state
   const [selectedMainProducts, setSelectedMainProducts] = useState<string[]>([]);
   const [isOtherProductsSelected, setIsOtherProductsSelected] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<'Vegetables' | 'Fruits' | 'Dry Fruits' | 'Grains' | null>(null);
   const [selectedOtherProducts, setSelectedOtherProducts] = useState<string[]>([]);
 
-  const otherProductsDropdownList = [
-    { labelEN: 'Vegetables (Sabziyaan)', labelRU: 'Sabziyaan (Vegetables)', value: 'Vegetables' },
-    { labelEN: 'Fruits (Phal)', labelRU: 'Phal (Fruits)', value: 'Fruits' },
-    { labelEN: 'Dry Fruits', labelRU: 'Dry Fruits', value: 'Dry Fruits' },
-    { labelEN: 'Grains (Anaaj)', labelRU: 'Anaaj (Grains)', value: 'Grains' }
-  ];
+  const OTHER_CATEGORIES_DATA: Record<'Vegetables' | 'Fruits' | 'Dry Fruits' | 'Grains', { nameEN: string; nameRU: string; items: string[] }> = {
+    Vegetables: {
+      nameEN: 'Vegetables',
+      nameRU: 'Sabziyaan (Vegetables)',
+      items: [
+        'Potato', 'Onion', 'Tomato', 'Garlic',
+        'Ginger', 'Green Chili', 'Coriander',
+        'Mint', 'Spinach', 'Fenugreek',
+        'Mustard Greens', 'Radish Leaves',
+        'Dill', 'Carrot', 'Radish', 'Turnip',
+        'Taro', 'Cucumber', 'Apple Gourd',
+        'Bitter Gourd', 'Bottle Gourd',
+        'Pumpkin', 'Eggplant', 'Cauliflower',
+        'Capsicum', 'Peas', 'Hyacinth Bean',
+        'Okra', 'Ridge Gourd', 'Jackfruit',
+        'Lotus Root', 'Colocasia replacement',
+        'Turmeric', 'Red Chili', 'Cluster Beans',
+        'Snake Gourd', 'Wild Melon',
+        'Sweet Pumpkin', 'Zucchini',
+        'Cherry Tomato'
+      ]
+    },
+    Fruits: {
+      nameEN: 'Fruits',
+      nameRU: 'Phal (Fruits)',
+      items: [
+        'Mango', 'Kinnow', 'Guava', 'Banana',
+        'Apple', 'Pear', 'Grapes', 'Watermelon',
+        'Cantaloupe', 'Pomegranate',
+        'Blood Orange', 'Lemon', 'Grapefruit',
+        'Mandarin', 'Phalsa Berry', 'Lychee',
+        'Black Plum', 'Plum', 'Apricot',
+        'Persimmon', 'Sapodilla', 'Papaya',
+        'Jujube', 'Mud Apple', 'Tamarind',
+        'Strawberry', 'Dates', 'Figs',
+        'Olive', 'Nectarine', 'Peach',
+        'Cherry', 'Kiwi', 'Loquat',
+        'Dragon Fruit', 'Pineapple',
+        'Mulberry', 'Fig removed replaced',
+        'Wood Apple', 'Dried Kiwi'
+      ]
+    },
+    'Dry Fruits': {
+      nameEN: 'Dry Fruits',
+      nameRU: 'Dry Fruits (Khushk Meway)',
+      items: [
+        'Walnuts', 'Almonds', 'Raisins',
+        'Pistachios', 'Cashews', 'Peanuts',
+        'Pine Nuts', 'Dried Figs', 'Dried Peach',
+        'Sesame Seeds', 'Nigella Seeds',
+        'Flax Seeds', 'Sunflower Seeds',
+        'Pumpkin Seeds', 'Dried Melon Seeds',
+        'Chia Seeds', 'Poppy Seeds',
+        'Fenugreek Seeds', 'Fennel Seeds',
+        'Dried Grapes', 'Dried Apricot',
+        'Dried Plum', 'Dried Mulberry',
+        'Dried Cranberry', 'Dried Blueberry',
+        'Dried Mango', 'Dried Coconut',
+        'Dried Pineapple', 'Tragacanth Gum',
+        'Mixed Nuts', 'Saffron', 'Fox Nuts',
+        'Beetroot Chips', 'Dry Cherry',
+        'Sweet Potato Chips', 'Dried Amla',
+        'Dried Tamarind', 'Dried Raw Mango',
+        'Dried Dates', 'Dry Coconut'
+      ]
+    },
+    Grains: {
+      nameEN: 'Grains',
+      nameRU: 'Anaaj (Grains)',
+      items: [
+        'Wheat', 'Red Rice', 'Corn', 'Barley',
+        'Pearl Millet', 'Sorghum', 'Cowpeas',
+        'Red Lentils', 'Green Lentils',
+        'Black Lentils', 'Mung Beans',
+        'Split Peas', 'Pigeon Peas',
+        'Red Kidney Beans', 'Garbanzo Beans',
+        'Moth Beans', 'Horse Gram',
+        'Whole Red Lentils',
+        'Whole Green Lentils',
+        'Split Chickpeas', 'Basmati Rice',
+        'Parboiled Rice', 'Brown Rice',
+        'Kalijeera Rice', 'Sugdasi Rice',
+        'Chinor Rice', 'Super Kernel Rice',
+        'Irri Rice', 'Jasmine Rice',
+        'Quinoa', 'Oats', 'Buckwheat',
+        'Rye', 'Amaranth', 'Finger Millet',
+        'Soya Beans', 'Flaxseed',
+        'Hemp Seeds', 'Teff', 'Sorghum'
+      ]
+    }
+  };
 
   const formatCnic = (val: string) => {
     const rawDigits = val.replace(/\D/g, '').slice(0, 13);
@@ -96,10 +182,11 @@ const SellerRegister = () => {
     if (isOther) {
       if (isOtherProductsSelected) {
         setIsOtherProductsSelected(false);
-        setSelectedOtherProducts([]);
+        setActiveCategory(null);
         setSelectedMainProducts(prev => prev.filter(p => p !== item));
       } else {
         setIsOtherProductsSelected(true);
+        setActiveCategory('Vegetables');
         setSelectedMainProducts(prev => [...prev, item]);
       }
     } else {
@@ -111,10 +198,11 @@ const SellerRegister = () => {
     }
   };
 
-  const handleSelectOtherProductOption = (val: string) => {
-    if (!val) return;
-    if (!selectedOtherProducts.includes(val)) {
-      setSelectedOtherProducts(prev => [...prev, val]);
+  const handleToggleOtherProductItem = (item: string) => {
+    if (selectedOtherProducts.includes(item)) {
+      setSelectedOtherProducts(prev => prev.filter(p => p !== item));
+    } else {
+      setSelectedOtherProducts(prev => [...prev, item]);
     }
   };
 
@@ -882,70 +970,123 @@ const SellerRegister = () => {
                 })}
               </div>
 
-              {/* Other Products Multi-Select Dropdown */}
+              {/* Other Products Multi-Select Dropdown with 4 Category Buttons */}
               <AnimatePresence>
                 {isOtherProductsSelected && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="mt-6 p-6 bg-orange-50/70 dark:bg-orange-950/20 rounded-2xl border-2 border-orange-200 dark:border-orange-900/40 space-y-4"
+                    className="mt-6 p-6 bg-orange-50/80 dark:bg-orange-950/20 rounded-2xl border-2 border-orange-200 dark:border-orange-900/40 space-y-5"
                   >
                     <div>
-                      <label className="block text-sm font-bold text-gray-800 mb-1">
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1">
                         {language === 'romanUrdu' ? 'Dusri Products Select Karein:' : 'Select Other Products:'}
                       </label>
-                      <p className="text-xs text-gray-600 mb-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mb-3">
                         {language === 'romanUrdu' 
-                          ? 'Dropdown se categories select karein (ek se zyada bhi select kar sakte hain):' 
-                          : 'Choose categories from the dropdown below (you can select multiple):'}
+                          ? 'Category button par click karein aur uske andar se products select karein:' 
+                          : 'Click a category button below to view and select its products:'}
                       </p>
-                      <div className="relative max-w-md">
-                        <select
-                          id="other-products-select"
-                          value=""
-                          onChange={(e) => handleSelectOtherProductOption(e.target.value)}
-                          className="w-full pl-4 pr-10 py-3.5 bg-white border border-orange-300 rounded-xl font-medium text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-agri-orange appearance-none cursor-pointer shadow-sm"
-                        >
-                          <option value="" disabled>
-                            {language === 'romanUrdu' ? '-- Category muntakhib karein --' : '-- Select a category --'}
-                          </option>
-                          {otherProductsDropdownList.map((opt) => (
-                            <option 
-                              key={opt.value} 
-                              value={opt.value}
-                              disabled={selectedOtherProducts.includes(opt.value)}
+
+                      {/* 4 Category Buttons */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {(['Vegetables', 'Fruits', 'Dry Fruits', 'Grains'] as const).map((catKey) => {
+                          const isActive = activeCategory === catKey;
+                          const catData = OTHER_CATEGORIES_DATA[catKey];
+                          const selectedCountInCategory = catData.items.filter(item => selectedOtherProducts.includes(item)).length;
+
+                          return (
+                            <button
+                              key={catKey}
+                              type="button"
+                              onClick={() => setActiveCategory(isActive ? null : catKey)}
+                              className={`py-3 px-3.5 rounded-xl font-bold text-xs sm:text-sm border transition-all flex items-center justify-between gap-1 shadow-sm ${
+                                isActive
+                                  ? 'bg-agri-orange text-white border-agri-orange ring-2 ring-agri-orange/30'
+                                  : 'bg-white text-gray-700 border-orange-200 hover:bg-orange-100/50 hover:border-agri-orange'
+                              }`}
                             >
-                              {language === 'romanUrdu' ? opt.labelRU : opt.labelEN} {selectedOtherProducts.includes(opt.value) ? '✓' : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                              <span>{language === 'romanUrdu' ? (catKey === 'Vegetables' ? 'Sabziyaan' : catKey === 'Fruits' ? 'Phal' : catKey === 'Dry Fruits' ? 'Dry Fruits' : 'Anaaj') : catKey}</span>
+                              {selectedCountInCategory > 0 && (
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                                  isActive ? 'bg-white text-agri-orange' : 'bg-agri-orange text-white'
+                                }`}>
+                                  {selectedCountInCategory}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
+
+                    {/* Active Category Product List with 40 checkboxes */}
+                    {activeCategory && OTHER_CATEGORIES_DATA[activeCategory] && (
+                      <div className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-orange-200 dark:border-orange-900/40 shadow-sm animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
+                          <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                            {language === 'romanUrdu' 
+                              ? `${OTHER_CATEGORIES_DATA[activeCategory].nameRU} Products (Total ${OTHER_CATEGORIES_DATA[activeCategory].items.length}):` 
+                              : `${OTHER_CATEGORIES_DATA[activeCategory].nameEN} Products (Total ${OTHER_CATEGORIES_DATA[activeCategory].items.length}):`}
+                          </span>
+                          <span className="text-[11px] text-agri-orange font-semibold">
+                            {language === 'romanUrdu' ? 'Multiple select kar sakte hain' : 'Multiple selectable'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-64 overflow-y-auto pr-1">
+                          {OTHER_CATEGORIES_DATA[activeCategory].items.map((prodName) => {
+                            const isChecked = selectedOtherProducts.includes(prodName);
+                            return (
+                              <label
+                                key={prodName}
+                                className={`flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer select-none transition-colors ${
+                                  isChecked
+                                    ? 'bg-orange-50 dark:bg-orange-950/40 border-agri-orange text-agri-orange font-bold ring-1 ring-agri-orange/40'
+                                    : 'bg-gray-50/60 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleToggleOtherProductItem(prodName)}
+                                  className="w-4 h-4 rounded text-agri-orange focus:ring-agri-orange border-gray-300"
+                                />
+                                <span className="truncate">{prodName}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Selected Tags Display */}
                     {selectedOtherProducts.length > 0 && (
                       <div className="space-y-2 pt-1">
-                        <span className="text-xs font-bold text-gray-700">
-                          {language === 'romanUrdu' ? 'Muntakhib Shuda Categories:' : 'Selected Categories:'}
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {selectedOtherProducts.map((tag) => (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                            {language === 'romanUrdu' ? 'Muntakhib Shuda Products:' : 'Selected Products:'} ({selectedOtherProducts.length})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedOtherProducts([])}
+                            className="text-[11px] text-red-500 hover:text-red-700 font-semibold"
+                          >
+                            {language === 'romanUrdu' ? 'Tamam saaf karein' : 'Clear all'}
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1">
+                          {selectedOtherProducts.map((prodName) => (
                             <span
-                              key={tag}
-                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-agri-orange text-white text-xs font-bold shadow-sm"
+                              key={prodName}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
                             >
-                              <span>
-                                {tag === 'Vegetables' ? (language === 'romanUrdu' ? 'Vegetables (Sabziyaan)' : 'Vegetables (Sabziyaan)') :
-                                 tag === 'Fruits' ? (language === 'romanUrdu' ? 'Fruits (Phal)' : 'Fruits (Phal)') :
-                                 tag === 'Dry Fruits' ? 'Dry Fruits' :
-                                 tag === 'Grains' ? (language === 'romanUrdu' ? 'Grains (Anaaj)' : 'Grains (Anaaj)') : tag}
-                              </span>
+                              <span>{prodName}</span>
                               <button
                                 type="button"
-                                onClick={() => handleRemoveOtherProductTag(tag)}
-                                className="w-4 h-4 rounded-full bg-white/25 hover:bg-white/40 flex items-center justify-center transition-colors"
+                                onClick={() => handleRemoveOtherProductTag(prodName)}
+                                className="w-4 h-4 rounded-full bg-white/20 hover:bg-white/40 flex items-center justify-center transition-colors ml-0.5"
                                 title="Remove tag"
                               >
                                 <X className="w-3 h-3 text-white" />
