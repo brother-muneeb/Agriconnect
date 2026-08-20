@@ -7,7 +7,6 @@ import KisanTips from '../components/KisanTips';
 import Gallery from '../components/Gallery';
 import Reviews from '../components/Reviews';
 import Deals from '../components/Deals';
-import HomeLoginPopup from '../components/HomeLoginPopup';
 import SellerDashboard from '../components/SellerDashboard';
 
 const Home = () => {
@@ -65,7 +64,6 @@ const Home = () => {
 
   return (
     <div id="home-page">
-      <HomeLoginPopup />
       <Hero />
       <Features />
       <MandiRates />

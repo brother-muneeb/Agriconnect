@@ -1730,13 +1730,17 @@
       if(menu) menu.style.display = 'none';
       
       try {
-        await firebase.auth().signOut();
-        localStorage.removeItem('ac_user');
-        localStorage.removeItem('ac_avatar_color');
-        navigateToPage('home');
+        if (window.firebase && window.firebase.auth) {
+          await firebase.auth().signOut();
+        }
       } catch(e) {
         console.error('Logout error:', e);
       }
+      localStorage.removeItem('ac_user');
+      localStorage.removeItem('ac_avatar_color');
+      sessionStorage.removeItem('lp');
+      window.dispatchEvent(new Event('ac_user_updated'));
+      window.dispatchEvent(new Event('ac_show_login_popup'));
     }
 
     function acShowSettings() {
@@ -1880,119 +1884,11 @@
 
 
 
-    // Show login popup on home page ONLY, immediately with zero delay
-    setInterval(function(){
-      var isHome = 
-        window.location.pathname === '/' ||
-        window.location.pathname === '/home' ||
-        window.location.pathname === '/index' ||
-        window.location.pathname === '' ||
-        document.body.id === 'home-page' ||
-        document.getElementById('home-page') !== null ||
-        document.getElementById('hero-section') !== null ||
-        document.getElementById('home-hero') !== null ||
-        document.querySelector('.hero-section') !== null;
-      
-      if (!isHome) {
-        var overlay = document.getElementById('lp');
-        if (overlay) overlay.remove();
-        return;
-      }
-
-      if (document.getElementById('lp')) return;
-
-      var user = localStorage.getItem('ac_user');
-      var shown = sessionStorage.getItem('lp');
-      if(user || shown) return;
-      sessionStorage.setItem('lp','1');
-      
-      var d = document.createElement('div');
-      d.id = 'lp';
-      d.style.cssText = 
-        'position:fixed;top:0;left:0;'+
-        'width:100vw;height:100vh;'+
-        'background:rgba(0,0,0,0.6);'+
-        'z-index:999999;display:flex;'+
-        'align-items:center;'+
-        'justify-content:center;'+
-        'padding:16px;';
-      
-      d.innerHTML = 
-        '<div id="ac-login-popup-card" style="background:white;'+
-        'border-radius:20px;width:100%;'+
-        'max-width:340px;overflow:hidden;'+
-        'box-shadow:0 20px 40px rgba(0,0,0,0.3);'+
-        'animation:pi 0.3s ease;">'+
-        
-        '<div class="ac-popup-header" style="background:linear-gradient('+
-        '135deg,#1a6b3c,#2d9e5e);'+
-        'padding:24px;text-align:center;'+
-        'position:relative;">'+
-        '<button onclick="document.getElementById('+
-        "'lp').remove()\" "+
-        'style="position:absolute;top:10px;'+
-        'right:10px;background:rgba(255,255,255,'+
-        '0.3);border:none;color:white;'+
-        'width:28px;height:28px;border-radius:50%;'+
-        'cursor:pointer;font-size:16px;line-height:28px;text-align:center;padding:0;">'+
-        '✕</button>'+
-        '<div style="font-size:36px;">🌾</div>'+
-        '<div class="ac-popup-title" style="color:white;font-size:22px;'+
-        'font-weight:800;margin-top:8px;">'+
-        'AgriConnect</div>'+
-        '<div style="color:rgba(255,255,255,0.92);'+
-        'font-size:12px;margin-top:4px;line-height:1.4;">'+
-        'Punjab Ki Taazgi - Aapke Ghar Tak<br>'+
-        '<span style="font-size:11px;opacity:0.85;">Punjab Freshness - Right To Your Door</span>'+
-        '</div></div>'+
-        
-        '<div class="ac-popup-body" style="padding:20px;">'+
-        '<div style="text-align:center;'+
-        'color:#444;font-size:14px;'+
-        'font-weight:600;margin-bottom:16px;">'+
-        'Apne Account Mein Login Karein<br><span style="font-size:11px;color:#777;font-weight:normal;">Login To Your Account</span>'+
-        '</div>'+
-        
-        '<button onclick="'+
-        "document.getElementById('lp').remove();"+
-        "window.location.href='/login'\" "+
-        'style="width:100%;background:#2d6a2d;'+
-        'color:white;border:none;padding:13px;'+
-        'border-radius:10px;font-size:14px;'+
-        'font-weight:700;cursor:pointer;">'+
-        '👤 Customer Login</button>'+
-        
-        '<button onclick="'+
-        "document.getElementById('lp').remove();"+
-        "window.location.href='/seller-login'\" "+
-        'style="width:100%;background:#e65100;'+
-        'color:white;border:none;padding:13px;'+
-        'border-radius:10px;font-size:14px;'+
-        'font-weight:700;cursor:pointer;'+
-        'margin-top:10px;">'+
-        '🏪 Seller Login</button>'+
-        
-        '<div style="text-align:center;'+
-        'margin-top:16px;">'+
-        '<span style="color:#888;font-size:12px;">'+
-        'Naya account? / New here? '+
-        '</span>'+
-        '<button onclick="'+
-        "document.getElementById('lp').remove();"+
-        "window.location.href='/customer-register'\" "+
-        'style="background:none;border:none;'+
-        'color:#2d6a2d;font-size:13px;'+
-        'font-weight:700;cursor:pointer;text-decoration:underline;">'+
-        'Register Now →'+
-        '</button></div>'+
-        '</div></div>';
-      
-      document.body.appendChild(d);
-      
-      d.addEventListener('click',function(e){
-        if(e.target===d) d.remove();
-      });
-    }, 100);
+    // Show login popup helper
+    window.acShowLoginPopup = function() {
+      sessionStorage.removeItem('lp');
+      window.dispatchEvent(new Event('ac_show_login_popup'));
+    };
 
     // Add CSS stylesheet for animation and responsiveness
     var popupStyle = document.createElement('style');

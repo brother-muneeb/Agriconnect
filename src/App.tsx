@@ -17,6 +17,7 @@ import Gallery from './pages/Gallery';
 import Contact from './pages/Contact';
 import About from './pages/About';
 import SellerDashboard from './components/SellerDashboard';
+import HomeLoginPopup from './components/HomeLoginPopup';
 import { CartProvider } from './context/CartContext';
 import { ProductProvider } from './context/ProductContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
@@ -194,6 +195,7 @@ export default function App() {
                 <Router>
                   <FirebaseAuthState />
                   <ScrollToTop />
+                  <HomeLoginPopup />
                   <div className="min-h-screen bg-white dark:bg-[#1a1a1a] flex flex-col transition-colors duration-300">
                     <Navbar />
                     <main className="flex-1">

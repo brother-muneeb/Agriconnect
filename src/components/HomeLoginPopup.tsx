@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -7,18 +7,54 @@ export const HomeLoginPopup: React.FC = () => {
   const { language } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
 
+  const showPopup = useCallback(() => {
+    sessionStorage.setItem('lp', '1');
+    setIsOpen(true);
+  }, []);
+
+  const hidePopup = useCallback(() => {
+    sessionStorage.setItem('lp', '1');
+    setIsOpen(false);
+  }, []);
+
+  // Initial check on load: show if not logged in and not previously shown in this session
   useEffect(() => {
     if (loading) return;
 
-    // Check if user is logged in
     const localUser = localStorage.getItem('ac_user');
     const shown = sessionStorage.getItem('lp');
 
     if (!user && !localUser && !shown) {
-      sessionStorage.setItem('lp', '1');
-      setIsOpen(true);
+      showPopup();
+    } else if (user || localUser) {
+      setIsOpen(false);
     }
-  }, [user, loading]);
+  }, [user, loading, showPopup]);
+
+  // Listen for logout or explicit trigger events to immediately show popup
+  useEffect(() => {
+    const handleTriggerPopup = () => {
+      sessionStorage.removeItem('lp');
+      showPopup();
+    };
+
+    const handleUserUpdate = () => {
+      const localUser = localStorage.getItem('ac_user');
+      if (localUser) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('ac_show_login_popup', handleTriggerPopup);
+    window.addEventListener('ac_user_updated', handleUserUpdate);
+
+    (window as any).acShowLoginPopup = handleTriggerPopup;
+
+    return () => {
+      window.removeEventListener('ac_show_login_popup', handleTriggerPopup);
+      window.removeEventListener('ac_user_updated', handleUserUpdate);
+    };
+  }, [showPopup]);
 
   if (!isOpen) return null;
 
@@ -28,7 +64,7 @@ export const HomeLoginPopup: React.FC = () => {
     <div 
       id="lp"
       onClick={(e) => {
-        if (e.target === e.currentTarget) setIsOpen(false);
+        if (e.target === e.currentTarget) hidePopup();
       }}
       className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
@@ -44,7 +80,7 @@ export const HomeLoginPopup: React.FC = () => {
           style={{ background: 'linear-gradient(135deg, #1a6b3c, #2d9e5e)' }}
         >
           <button 
-            onClick={() => setIsOpen(false)}
+            onClick={hidePopup}
             className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full bg-white/30 hover:bg-white/40 text-white font-bold text-base transition-colors"
             aria-label="Close"
           >
@@ -74,7 +110,7 @@ export const HomeLoginPopup: React.FC = () => {
           {/* Customer Login button (green) */}
           <button 
             onClick={() => {
-              setIsOpen(false);
+              hidePopup();
               window.location.href = '/login';
             }}
             className="w-full bg-[#2d6a2d] hover:bg-[#235323] text-white py-3.5 px-4 rounded-xl text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2"
@@ -85,7 +121,7 @@ export const HomeLoginPopup: React.FC = () => {
           {/* Seller Login button (orange) */}
           <button 
             onClick={() => {
-              setIsOpen(false);
+              hidePopup();
               window.location.href = '/seller-login';
             }}
             className="w-full bg-[#e65100] hover:bg-[#c24400] text-white py-3.5 px-4 rounded-xl text-sm font-bold shadow-md transition-all mt-2.5 flex items-center justify-center gap-2"
@@ -100,7 +136,7 @@ export const HomeLoginPopup: React.FC = () => {
             </span>
             <button 
               onClick={() => {
-                setIsOpen(false);
+                hidePopup();
                 window.location.href = '/customer-register';
               }}
               className="text-[#2d6a2d] hover:text-[#1e481e] text-xs font-bold underline transition-colors"

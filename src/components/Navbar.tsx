@@ -81,8 +81,10 @@ const Navbar = () => {
     await logout();
     localStorage.removeItem('ac_user');
     localStorage.removeItem('ac_avatar_color');
+    sessionStorage.removeItem('lp');
     setShowAvatarDropdown(false);
     window.dispatchEvent(new Event('ac_user_updated'));
+    window.dispatchEvent(new Event('ac_show_login_popup'));
     setIsMobileMenuOpen(false);
   };
 
@@ -171,6 +173,8 @@ const Navbar = () => {
     } else {
       await handleLogout();
     }
+    sessionStorage.removeItem('lp');
+    window.dispatchEvent(new Event('ac_show_login_popup'));
   };
 
   const isActive = (path: string) => location.pathname === path;

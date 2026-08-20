@@ -379,7 +379,7 @@ export const SellerDashboard: React.FC = () => {
     localStorage.removeItem('ac_avatar_color');
     sessionStorage.removeItem('lp');
     window.dispatchEvent(new Event('ac_user_updated'));
-    window.location.href = '/';
+    window.dispatchEvent(new Event('ac_show_login_popup'));
   };
 
   // Process orders to filter ONLY items relevant to this seller's products/categories

@@ -87,6 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Logout failed:', error);
     }
+    localStorage.removeItem('ac_user');
+    localStorage.removeItem('ac_avatar_color');
+    sessionStorage.removeItem('lp');
+    window.dispatchEvent(new Event('ac_user_updated'));
+    window.dispatchEvent(new Event('ac_show_login_popup'));
   };
 
   const isAdmin = profile?.role === 'admin';
