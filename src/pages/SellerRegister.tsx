@@ -28,6 +28,21 @@ const SellerRegister = () => {
   const [cnic, setCnic] = useState('');
   const [cnicTouched, setCnicTouched] = useState(false);
 
+  // Password & Confirm Password state
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const isConfirmEmpty = confirmPassword === '';
+  const isPasswordMatch = !isConfirmEmpty && confirmPassword === password;
+  const isPasswordMismatch = !isConfirmEmpty && confirmPassword !== password;
+
+  const getConfirmPasswordStyle = () => {
+    if (isConfirmEmpty) return {};
+    if (isPasswordMismatch) return { border: '2px solid #e74c3c', background: '#fff5f5' };
+    if (isPasswordMatch) return { border: '2px solid #2ecc71', background: '#f0fff4' };
+    return {};
+  };
+
   // Products & Other Products dropdown state
   const [selectedMainProducts, setSelectedMainProducts] = useState<string[]>([]);
   const [isOtherProductsSelected, setIsOtherProductsSelected] = useState(false);
@@ -305,8 +320,8 @@ const SellerRegister = () => {
     var phoneVal = phone.trim();
     var whatsappVal = whatsapp.trim();
     var cnicVal = cnic.trim();
-    var password = getVal(['seller-password','sellerPassword']);
-    var confirmPass = getVal(['seller-confirm','sellerConfirm']);
+    var passwordVal = password || getVal(['seller-password','sellerPassword']);
+    var confirmPassVal = confirmPassword || getVal(['seller-confirm','sellerConfirm']);
     var shopName = getVal(['shop-name','shopName','farmName']);
     var businessType = (document.getElementById('business-type') as HTMLSelectElement)?.value || '';
     var city = (document.getElementById('seller-city') as HTMLSelectElement)?.value || '';
@@ -374,8 +389,20 @@ const SellerRegister = () => {
       return;
     }
 
-    if(!password || password.length < 6) { acShowSellerMsg('Password kam az kam 6 characters ka hona chahiye!', 'error'); return; }
-    if(password !== confirmPass) { acShowSellerMsg('Password match nahi kar raha!', 'error'); return; }
+    if(!passwordVal || passwordVal.length < 6) { 
+      acShowSellerMsg(
+        language === 'romanUrdu' ? 'Password kam az kam 6 characters ka hona chahiye!' : 'Password must be at least 6 characters!', 
+        'error'
+      ); 
+      return; 
+    }
+    if(!confirmPassVal || passwordVal !== confirmPassVal) { 
+      acShowSellerMsg(
+        language === 'romanUrdu' ? 'Pehle password match karein!' : 'Please match passwords first!', 
+        'error'
+      ); 
+      return; 
+    }
     if(!shopName) { acShowSellerMsg('Dukaan ya farm ka naam likhein!', 'error'); return; }
     
     // Check connection before Firebase auth call
@@ -396,7 +423,7 @@ const SellerRegister = () => {
 
     async function attemptSellerRegister() {
       try {
-        return await firebase.auth().createUserWithEmailAndPassword(emailVal, password);
+        return await firebase.auth().createUserWithEmailAndPassword(emailVal, passwordVal);
       } catch(error: any) {
         if(error && error.code === 'auth/network-request-failed' && retryCount < maxRetries) {
           retryCount++;
@@ -709,7 +736,14 @@ const SellerRegister = () => {
                   <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">{t.password}</label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input id="seller-password" type={showPassword ? "text" : "password"} placeholder={t.passwordPlaceholder} className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-agri-orange outline-none" />
+                    <input 
+                      id="seller-password" 
+                      type={showPassword ? "text" : "password"} 
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={t.passwordPlaceholder} 
+                      className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-agri-orange outline-none" 
+                    />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-agri-orange transition-colors">
                       {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
@@ -719,11 +753,39 @@ const SellerRegister = () => {
                   <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">{t.confirmPassword}</label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input id="seller-confirm" type={showConfirmPassword ? "text" : "password"} placeholder={t.confirmPasswordPlaceholder} className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-agri-orange outline-none" />
+                    <input 
+                      id="seller-confirm" 
+                      type={showConfirmPassword ? "text" : "password"} 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder={t.confirmPasswordPlaceholder} 
+                      style={getConfirmPasswordStyle()}
+                      className="w-full pl-12 pr-20 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-agri-orange outline-none transition-colors" 
+                    />
+                    {isPasswordMismatch && (
+                      <span className="absolute right-12 top-1/2 -translate-y-1/2 text-lg text-[#e74c3c] font-bold select-none">
+                        ✗
+                      </span>
+                    )}
+                    {isPasswordMatch && (
+                      <span className="absolute right-12 top-1/2 -translate-y-1/2 text-lg text-[#2ecc71] font-bold select-none">
+                        ✓
+                      </span>
+                    )}
                     <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-agri-orange transition-colors">
                       {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                     </button>
                   </div>
+                  {isPasswordMismatch && (
+                    <p className="mt-1.5 text-xs font-bold text-[#e74c3c] ml-1 animate-in fade-in slide-in-from-top-1">
+                      {language === 'romanUrdu' ? 'Password match nahi kar raha ✗' : 'Password does not match ✗'}
+                    </p>
+                  )}
+                  {isPasswordMatch && (
+                    <p className="mt-1.5 text-xs font-bold text-[#2ecc71] ml-1 animate-in fade-in slide-in-from-top-1">
+                      {language === 'romanUrdu' ? 'Password match kar gaya ✓' : 'Password matched ✓'}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
