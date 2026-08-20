@@ -7,6 +7,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import confetti from 'canvas-confetti';
+import { isPunjabCity } from '../utils/categoryMatcher';
 
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, clearCart, cartTotal, getCurrentPriceData } = useCart();
@@ -176,6 +177,8 @@ const Cart = () => {
           orderNumber: orderNumber,
           orderDate: new Date(),
           orderTime: new Date().toLocaleTimeString(),
+          customerCity: orderData.city,
+          customerProvince: isPunjabCity(orderData.city) ? "Punjab" : "Other",
           
           customerInfo: {
             uid: acUser.uid || "guest",
@@ -187,6 +190,7 @@ const Cart = () => {
           
           deliveryAddress: {
             city: orderData.city,
+            province: isPunjabCity(orderData.city) ? "Punjab" : "Other",
             area: orderData.area,
             address: orderData.address,
             landmark: orderData.landmark

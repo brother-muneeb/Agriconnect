@@ -50,6 +50,8 @@ interface SellerData {
   address?: string;
   landmark?: string;
   products?: string[];
+  categories?: string[];
+  otherProducts?: string[];
   deliveryRange?: string;
   isApproved?: boolean;
   avatarColor?: string;
@@ -61,6 +63,8 @@ interface OrderItem {
   orderNumber: string;
   orderDate?: any;
   orderTime?: string;
+  customerCity?: string;
+  customerProvince?: string;
   customerInfo?: {
     name?: string;
     phone?: string;
@@ -69,6 +73,7 @@ interface OrderItem {
   };
   deliveryAddress?: {
     city?: string;
+    province?: string;
     area?: string;
     address?: string;
     landmark?: string;
@@ -78,6 +83,7 @@ interface OrderItem {
     category?: string;
     quantity: number;
     weight?: string;
+    price?: number;
     finalPrice?: number;
     totalPrice?: number;
   }>;
@@ -87,6 +93,16 @@ interface OrderItem {
     total?: number;
   };
   status?: 'pending' | 'processing' | 'dispatched' | 'delivered' | 'cancelled';
+  sellerItems?: Array<{
+    name: string;
+    category?: string;
+    quantity: number;
+    weight?: string;
+    price?: number;
+    finalPrice?: number;
+    totalPrice?: number;
+  }>;
+  sellerTotal?: number;
 }
 
 export const SellerDashboard: React.FC = () => {
@@ -207,11 +223,13 @@ export const SellerDashboard: React.FC = () => {
             orderNumber: data.orderNumber || docSnap.id.slice(0, 8).toUpperCase(),
             orderDate: data.orderDate,
             orderTime: data.orderTime || '',
+            customerCity: data.customerCity || data.deliveryAddress?.city || '',
+            customerProvince: data.customerProvince || data.deliveryAddress?.province || '',
             customerInfo: data.customerInfo || {},
             deliveryAddress: data.deliveryAddress || {},
             products: data.products || [],
             orderSummary: data.orderSummary || { total: 0 },
-            status: data.status || 'pending'
+            status: data.status || data.orderStatus || 'pending'
           });
         });
         setOrders(fetchedOrders);
@@ -382,16 +400,15 @@ export const SellerDashboard: React.FC = () => {
     window.dispatchEvent(new Event('ac_show_login_popup'));
   };
 
-  // Process orders to filter ONLY items relevant to this seller's products/categories
+  // Process orders to filter ONLY items relevant to this seller's products/categories & location
   const sellerRelevantOrders = React.useMemo(() => {
-    const sellerProds = seller?.products || [];
-    if (sellerProds.length === 0) {
+    if (!seller) {
       return [];
     }
     return orders
-      .map(o => filterOrderForSeller(o, sellerProds))
+      .map(o => filterOrderForSeller(o, seller))
       .filter((o): o is NonNullable<typeof o> => o !== null);
-  }, [orders, seller?.products]);
+  }, [orders, seller]);
 
   // Calculate statistics from seller's relevant orders only
   const totalOrdersCount = sellerRelevantOrders.length;
