@@ -740,13 +740,13 @@ export const SellerDashboard: React.FC = () => {
               ) : sellerRelevantOrders.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 dark:bg-gray-900/50 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
                   <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="font-bold text-gray-700 dark:text-gray-300">
-                    {isUrdu ? 'Aapke selected products ke liye koi naya order nahi aaya.' : 'No orders for your listed categories yet.'}
+                  <p className="font-bold text-gray-700 dark:text-gray-300 text-lg">
+                    {isUrdu ? 'Abhi koi order nahi aaya' : 'No orders received yet'}
                   </p>
                   <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">
                     {isUrdu 
-                      ? 'Jab customer aapke category ke products order karega, yahan live show hoga. Dusri categories (jaise Sabziyaan/Phal) unke mutalliqah sellers ko dikhayi deti hain.' 
-                      : 'Orders containing your products will automatically appear here in real-time. Orders for other categories (e.g. Vegetables, Fruits) are routed to their respective sellers.'}
+                      ? 'Jab customer aapke category ke products order karega, yahan live show hoga.' 
+                      : 'When a customer places an order containing your products, it will appear here in real-time.'}
                   </p>
                 </div>
               ) : (
@@ -754,11 +754,12 @@ export const SellerDashboard: React.FC = () => {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-gray-100 dark:border-gray-700 text-gray-400 text-xs uppercase font-semibold">
-                        <th className="pb-3">Order ID</th>
-                        <th className="pb-3">{isUrdu ? 'Customer' : 'Customer'}</th>
-                        <th className="pb-3">{isUrdu ? 'Your Products' : 'Your Items'}</th>
-                        <th className="pb-3">{isUrdu ? 'Your Total' : 'Your Subtotal'}</th>
-                        <th className="pb-3">{isUrdu ? 'Status' : 'Status'}</th>
+                        <th className="pb-3">{isUrdu ? 'Order Number' : 'Order Number'}</th>
+                        <th className="pb-3">{isUrdu ? 'Date' : 'Date'}</th>
+                        <th className="pb-3">{isUrdu ? 'Customer Name' : 'Customer Name'}</th>
+                        <th className="pb-3">{isUrdu ? 'Products (Category)' : 'Products (Matching Category)'}</th>
+                        <th className="pb-3">{isUrdu ? 'Total Amount' : 'Total Amount'}</th>
+                        <th className="pb-3">{isUrdu ? 'Order Status' : 'Order Status'}</th>
                         <th className="pb-3 text-right">{isUrdu ? 'Action' : 'Action'}</th>
                       </tr>
                     </thead>
@@ -767,6 +768,11 @@ export const SellerDashboard: React.FC = () => {
                         <tr key={ord.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-750 transition-colors">
                           <td className="py-4 font-mono font-bold text-agri-orange">
                             #{ord.orderNumber}
+                          </td>
+                          <td className="py-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                            <div className="font-semibold text-gray-800 dark:text-gray-200">
+                              {ord.orderTime || (ord.orderDate ? new Date(ord.orderDate.toDate ? ord.orderDate.toDate() : ord.orderDate).toLocaleDateString() : 'Today')}
+                            </div>
                           </td>
                           <td className="py-4">
                             <div className="font-bold text-gray-900 dark:text-white">
@@ -784,11 +790,11 @@ export const SellerDashboard: React.FC = () => {
                             </div>
                             {ord.products && ord.sellerItems && ord.products.length > ord.sellerItems.length && (
                               <div className="text-[10px] text-gray-400 italic mt-0.5">
-                                +{ord.products.length - ord.sellerItems.length} other items in order (other sellers)
+                                +{ord.products.length - ord.sellerItems.length} other items in order
                               </div>
                             )}
                           </td>
-                          <td className="py-4 font-bold text-gray-900 dark:text-white">
+                          <td className="py-4 font-bold text-gray-900 dark:text-white whitespace-nowrap">
                             Rs. {(ord.sellerTotal || ord.orderSummary?.total || 0).toLocaleString()}
                           </td>
                           <td className="py-4">
@@ -869,7 +875,7 @@ export const SellerDashboard: React.FC = () => {
               <div className="text-center py-16 bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                 <ShoppingBag className="w-16 h-16 text-gray-300 mx-auto mb-3" />
                 <h3 className="text-lg font-bold text-gray-700 dark:text-gray-300">
-                  {isUrdu ? 'Koi order nahi mila' : 'No matching orders found'}
+                  {isUrdu ? 'Abhi koi order nahi aaya' : 'No orders received yet'}
                 </h3>
                 <p className="text-sm text-gray-400 mt-1">
                   {isUrdu ? 'Filter reset karein ya naye orders ka intezaar karein.' : 'Try changing your search or filter criteria.'}

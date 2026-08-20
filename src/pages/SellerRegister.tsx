@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Eye, EyeOff, User, Mail, Phone, Lock, MapPin, Home, Flag, Leaf, Briefcase, Package, Truck, CreditCard } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Eye, EyeOff, User, Mail, Phone, Lock, MapPin, Home, Flag, Leaf, Briefcase, Package, Truck, CreditCard, ChevronDown, X, Check } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { useLanguage } from '../context/LanguageContext';
@@ -23,6 +23,89 @@ const SellerRegister = () => {
 
   const [whatsapp, setWhatsapp] = useState('');
   const [whatsappTouched, setWhatsappTouched] = useState(false);
+
+  // CNIC State & Auto-formatting
+  const [cnic, setCnic] = useState('');
+  const [cnicTouched, setCnicTouched] = useState(false);
+
+  // Products & Other Products dropdown state
+  const [selectedMainProducts, setSelectedMainProducts] = useState<string[]>([]);
+  const [isOtherProductsSelected, setIsOtherProductsSelected] = useState(false);
+  const [selectedOtherProducts, setSelectedOtherProducts] = useState<string[]>([]);
+
+  const otherProductsDropdownList = [
+    { labelEN: 'Vegetables (Sabziyaan)', labelRU: 'Sabziyaan (Vegetables)', value: 'Vegetables' },
+    { labelEN: 'Fruits (Phal)', labelRU: 'Phal (Fruits)', value: 'Fruits' },
+    { labelEN: 'Dry Fruits', labelRU: 'Dry Fruits', value: 'Dry Fruits' },
+    { labelEN: 'Grains (Anaaj)', labelRU: 'Anaaj (Grains)', value: 'Grains' }
+  ];
+
+  const formatCnic = (val: string) => {
+    const rawDigits = val.replace(/\D/g, '').slice(0, 13);
+    let res = '';
+    if (rawDigits.length > 0) {
+      res = rawDigits.slice(0, 5);
+    }
+    if (rawDigits.length > 5) {
+      res += '-' + rawDigits.slice(5, 12);
+    }
+    if (rawDigits.length > 12) {
+      res += '-' + rawDigits.slice(12, 13);
+    }
+    return res;
+  };
+
+  const acValidateCnic = (val: string) => {
+    const digits = val.replace(/[\s-]/g, '');
+    if (!digits) {
+      return language === 'romanUrdu' ? 'CNIC 13 digits ka hona chahiye!' : 'CNIC must be 13 digits!';
+    }
+    if (digits.length !== 13) {
+      return language === 'romanUrdu' ? 'CNIC 13 digits ka hona chahiye!' : 'CNIC must be 13 digits!';
+    }
+    return null;
+  };
+
+  const cnicErr = acValidateCnic(cnic);
+  const showCnicErr = cnicTouched && cnicErr;
+  const isCnicValid = cnic && !cnicErr;
+
+  const getCnicStyle = () => {
+    if (showCnicErr) return { border: '2px solid #e74c3c', background: '#fff5f5' };
+    if (isCnicValid) return { border: '2px solid #2ecc71' };
+    return {};
+  };
+
+  const handleToggleProduct = (item: string) => {
+    const isOther = item === 'Other Products' || item === 'Dusri Cheezain';
+    if (isOther) {
+      if (isOtherProductsSelected) {
+        setIsOtherProductsSelected(false);
+        setSelectedOtherProducts([]);
+        setSelectedMainProducts(prev => prev.filter(p => p !== item));
+      } else {
+        setIsOtherProductsSelected(true);
+        setSelectedMainProducts(prev => [...prev, item]);
+      }
+    } else {
+      if (selectedMainProducts.includes(item)) {
+        setSelectedMainProducts(prev => prev.filter(p => p !== item));
+      } else {
+        setSelectedMainProducts(prev => [...prev, item]);
+      }
+    }
+  };
+
+  const handleSelectOtherProductOption = (val: string) => {
+    if (!val) return;
+    if (!selectedOtherProducts.includes(val)) {
+      setSelectedOtherProducts(prev => [...prev, val]);
+    }
+  };
+
+  const handleRemoveOtherProductTag = (val: string) => {
+    setSelectedOtherProducts(prev => prev.filter(p => p !== val));
+  };
 
   const acValidateEmail = (val: string) => {
     if(!val) {
@@ -218,10 +301,10 @@ const SellerRegister = () => {
     }
     
     var ownerName = getVal(['seller-name','owner-name','sellerName','ownerName']);
-    var email = getVal(['seller-email','owner-email','sellerEmail']);
-    var phone = getVal(['seller-phone','owner-phone','sellerPhone']);
-    var whatsapp = getVal(['seller-whatsapp','sellerWhatsapp']);
-    var cnic = getVal(['seller-cnic','cnic','cnicNumber']);
+    var emailVal = email.trim();
+    var phoneVal = phone.trim();
+    var whatsappVal = whatsapp.trim();
+    var cnicVal = cnic.trim();
     var password = getVal(['seller-password','sellerPassword']);
     var confirmPass = getVal(['seller-confirm','sellerConfirm']);
     var shopName = getVal(['shop-name','shopName','farmName']);
@@ -231,14 +314,17 @@ const SellerRegister = () => {
     var address = getVal(['seller-address','sellerAddress']);
     var landmark = getVal(['seller-landmark','sellerLandmark']);
     
-    // Get selected products checkboxes
-    var selectedProducts: string[] = [];
-    var productCheckboxes = document.querySelectorAll('input[type="checkbox"][name*="product"], .product-checkbox:checked, input[type="checkbox"].product:checked');
-    productCheckboxes.forEach(function(cb: any) {
-      if(cb.checked) {
-        selectedProducts.push(cb.value || cb.id);
-      }
-    });
+    // Combine products: main selected products (without the raw 'Other Products' label) + selected dropdown other products
+    const rawSelected = selectedMainProducts.filter(p => p !== 'Other Products' && p !== 'Dusri Cheezain');
+    const finalSelectedProducts = Array.from(new Set([
+      ...rawSelected,
+      ...selectedOtherProducts
+    ]));
+
+    // If empty fallback
+    if (finalSelectedProducts.length === 0) {
+      finalSelectedProducts.push('Vegetables');
+    }
     
     var deliveryRange = (document.getElementById('delivery-range') as HTMLSelectElement)?.value || 'Punjab';
     
@@ -259,24 +345,32 @@ const SellerRegister = () => {
     // Validation
     if(!ownerName) { acShowSellerMsg('Naam likhna zaroori hai!', 'error'); return; }
 
-    var emailErrVal = acValidateEmail(email);
+    var emailErrVal = acValidateEmail(emailVal);
     if(emailErrVal) {
       setEmailTouched(true);
       acShowSellerMsg(emailErrVal, 'error');
       return;
     }
 
-    var phoneErrVal = acValidatePhone(phone);
+    var phoneErrVal = acValidatePhone(phoneVal);
     if(phoneErrVal) {
       setPhoneTouched(true);
       acShowSellerMsg(phoneErrVal, 'error');
       return;
     }
 
-    var whatsappErrVal = acValidatePhone(whatsapp);
+    var whatsappErrVal = acValidatePhone(whatsappVal);
     if(whatsappErrVal) {
       setWhatsappTouched(true);
       acShowSellerMsg(whatsappErrVal, 'error');
+      return;
+    }
+
+    // CNIC Validation: Exactly 13 digits
+    var cnicErrVal = acValidateCnic(cnicVal);
+    if(cnicErrVal) {
+      setCnicTouched(true);
+      acShowSellerMsg(cnicErrVal, 'error');
       return;
     }
 
@@ -302,7 +396,7 @@ const SellerRegister = () => {
 
     async function attemptSellerRegister() {
       try {
-        return await firebase.auth().createUserWithEmailAndPassword(email, password);
+        return await firebase.auth().createUserWithEmailAndPassword(emailVal, password);
       } catch(error: any) {
         if(error && error.code === 'auth/network-request-failed' && retryCount < maxRetries) {
           retryCount++;
@@ -328,17 +422,18 @@ const SellerRegister = () => {
         uid: user.uid,
         userType: 'seller',
         fullName: ownerName,
-        email: email,
-        phone: phone,
-        whatsapp: whatsapp || phone,
-        cnic: cnic || '',
+        email: emailVal,
+        phone: phoneVal,
+        whatsapp: whatsappVal || phoneVal,
+        cnic: cnicVal,
         shopName: shopName,
         businessType: businessType || '',
         city: city || '',
         area: area || '',
         address: address || '',
         landmark: landmark || '',
-        products: selectedProducts,
+        products: finalSelectedProducts,
+        otherProducts: selectedOtherProducts,
         deliveryRange: deliveryRange || 'Punjab',
         loginMethod: 'email',
         avatarColor: avatarColor,
@@ -354,17 +449,18 @@ const SellerRegister = () => {
       await firebase.firestore().collection('sellers').doc(user.uid).set({
         uid: user.uid,
         ownerName: ownerName,
-        email: email,
-        phone: phone,
-        whatsapp: whatsapp || phone,
-        cnic: cnic || '',
+        email: emailVal,
+        phone: phoneVal,
+        whatsapp: whatsappVal || phoneVal,
+        cnic: cnicVal,
         shopName: shopName,
         businessType: businessType || '',
         city: city || '',
         area: area || '',
         address: address || '',
         landmark: landmark || '',
-        products: selectedProducts,
+        products: finalSelectedProducts,
+        otherProducts: selectedOtherProducts,
         deliveryRange: deliveryRange || 'Punjab',
         loginMethod: 'email',
         avatarColor: avatarColor,
@@ -388,8 +484,8 @@ const SellerRegister = () => {
       localStorage.setItem('ac_user', JSON.stringify({
         uid: user.uid,
         fullName: ownerName,
-        email: email,
-        phone: phone,
+        email: emailVal,
+        phone: phoneVal,
         userType: 'seller',
         shopName: shopName,
         loginMethod: 'email',
@@ -581,8 +677,33 @@ const SellerRegister = () => {
                   <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">{t.cnic}</label>
                   <div className="relative">
                     <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input id="seller-cnic" type="text" placeholder={t.cnicPlaceholder} className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-agri-orange outline-none" />
+                    <input 
+                      id="seller-cnic" 
+                      type="text" 
+                      value={cnic}
+                      onChange={(e) => {
+                        const formatted = formatCnic(e.target.value);
+                        setCnic(formatted);
+                        setCnicTouched(true);
+                      }}
+                      onBlur={() => setCnicTouched(true)}
+                      placeholder={t.cnicPlaceholder} 
+                      maxLength={15}
+                      style={getCnicStyle()}
+                      className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-agri-orange outline-none font-mono" 
+                    />
+                    {showCnicErr && (
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg text-[#e74c3c] font-bold">!</span>
+                    )}
+                    {isCnicValid && (
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-lg text-[#2ecc71] font-bold">✓</span>
+                    )}
                   </div>
+                  {showCnicErr && (
+                    <p className="mt-1.5 text-xs font-bold text-[#e74c3c] ml-1 animate-in fade-in slide-in-from-top-1">
+                      {cnicErr}
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">{t.password}</label>
@@ -668,13 +789,113 @@ const SellerRegister = () => {
                 {t.section3}
               </h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {t.productOptions.map(item => (
-                  <label key={item} className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer hover:bg-agri-orange/5 hover:border-agri-orange/30 transition-all group">
-                    <input id={`product_${item}`} value={item} type="checkbox" className="product-checkbox w-5 h-5 rounded border-gray-300 text-agri-orange focus:ring-agri-orange" />
-                    <span className="font-bold text-gray-700 group-hover:text-agri-orange transition-colors">{item}</span>
-                  </label>
-                ))}
+                {t.productOptions.map(item => {
+                  const isOther = item === 'Other Products' || item === 'Dusri Cheezain';
+                  const isChecked = isOther 
+                    ? isOtherProductsSelected 
+                    : selectedMainProducts.includes(item);
+
+                  return (
+                    <label 
+                      key={item} 
+                      className={`flex items-center gap-3 p-4 rounded-2xl border cursor-pointer transition-all group ${
+                        isChecked 
+                          ? 'bg-agri-orange/10 border-agri-orange ring-2 ring-agri-orange/30' 
+                          : 'bg-gray-50 border-gray-100 hover:bg-agri-orange/5 hover:border-agri-orange/30'
+                      }`}
+                    >
+                      <input 
+                        id={`product_${item}`} 
+                        value={item} 
+                        type="checkbox" 
+                        checked={isChecked}
+                        onChange={() => handleToggleProduct(item)}
+                        className="product-checkbox w-5 h-5 rounded border-gray-300 text-agri-orange focus:ring-agri-orange" 
+                      />
+                      <span className={`font-bold transition-colors ${isChecked ? 'text-agri-orange' : 'text-gray-700 group-hover:text-agri-orange'}`}>
+                        {item}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
+
+              {/* Other Products Multi-Select Dropdown */}
+              <AnimatePresence>
+                {isOtherProductsSelected && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-6 p-6 bg-orange-50/70 dark:bg-orange-950/20 rounded-2xl border-2 border-orange-200 dark:border-orange-900/40 space-y-4"
+                  >
+                    <div>
+                      <label className="block text-sm font-bold text-gray-800 mb-1">
+                        {language === 'romanUrdu' ? 'Dusri Products Select Karein:' : 'Select Other Products:'}
+                      </label>
+                      <p className="text-xs text-gray-600 mb-3">
+                        {language === 'romanUrdu' 
+                          ? 'Dropdown se categories select karein (ek se zyada bhi select kar sakte hain):' 
+                          : 'Choose categories from the dropdown below (you can select multiple):'}
+                      </p>
+                      <div className="relative max-w-md">
+                        <select
+                          id="other-products-select"
+                          value=""
+                          onChange={(e) => handleSelectOtherProductOption(e.target.value)}
+                          className="w-full pl-4 pr-10 py-3.5 bg-white border border-orange-300 rounded-xl font-medium text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-agri-orange appearance-none cursor-pointer shadow-sm"
+                        >
+                          <option value="" disabled>
+                            {language === 'romanUrdu' ? '-- Category muntakhib karein --' : '-- Select a category --'}
+                          </option>
+                          {otherProductsDropdownList.map((opt) => (
+                            <option 
+                              key={opt.value} 
+                              value={opt.value}
+                              disabled={selectedOtherProducts.includes(opt.value)}
+                            >
+                              {language === 'romanUrdu' ? opt.labelRU : opt.labelEN} {selectedOtherProducts.includes(opt.value) ? '✓' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Selected Tags Display */}
+                    {selectedOtherProducts.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        <span className="text-xs font-bold text-gray-700">
+                          {language === 'romanUrdu' ? 'Muntakhib Shuda Categories:' : 'Selected Categories:'}
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedOtherProducts.map((tag) => (
+                            <span
+                              key={tag}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-agri-orange text-white text-xs font-bold shadow-sm"
+                            >
+                              <span>
+                                {tag === 'Vegetables' ? (language === 'romanUrdu' ? 'Vegetables (Sabziyaan)' : 'Vegetables (Sabziyaan)') :
+                                 tag === 'Fruits' ? (language === 'romanUrdu' ? 'Fruits (Phal)' : 'Fruits (Phal)') :
+                                 tag === 'Dry Fruits' ? 'Dry Fruits' :
+                                 tag === 'Grains' ? (language === 'romanUrdu' ? 'Grains (Anaaj)' : 'Grains (Anaaj)') : tag}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveOtherProductTag(tag)}
+                                className="w-4 h-4 rounded-full bg-white/25 hover:bg-white/40 flex items-center justify-center transition-colors"
+                                title="Remove tag"
+                              >
+                                <X className="w-3 h-3 text-white" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Delivery & Payment */}
