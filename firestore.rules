@@ -158,6 +158,12 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    match /pendingChanges/{changeId} {
+      // Pending changes can be read, submitted by sellers, and updated/deleted by admins
+      allow read, write: if true;
+    }
+
+
     // Custom named backup collections (e.g. "Ahmed (Seller)"/doc)
     match /{collectionName}/{docId} {
       allow read, write: if isAuthenticated();

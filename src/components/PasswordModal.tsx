@@ -15,18 +15,56 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ isOpen, onClose, onSucces
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check Firebase / local userType
+    const storedUser = localStorage.getItem('ac_user');
+    let userType = '';
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser);
+        userType = parsed.userType || '';
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    if (userType === 'customer') {
+      setError(true);
+      setErrorMessage(
+        language === 'romanUrdu'
+          ? 'Customer ko Admin Panel ki ijazat nahi hai.'
+          : 'Customers are not permitted to access Admin Panel.'
+      );
+      setTimeout(() => {
+        setError(false);
+        setErrorMessage('');
+      }, 3500);
+      return;
+    }
+
     if (password === 'agriconnect2024') {
       onSuccess();
       setPassword('');
       setError(false);
+      setErrorMessage('');
     } else {
       setError(true);
-      setTimeout(() => setError(false), 2000);
+      setErrorMessage(
+        language === 'romanUrdu'
+          ? 'Galat Password! Dobara Koshish Karein'
+          : 'Incorrect Password! Please try again.'
+      );
+      setTimeout(() => {
+        setError(false);
+        setErrorMessage('');
+      }, 2500);
     }
   };
+
 
   return (
     <AnimatePresence>
@@ -73,9 +111,11 @@ const PasswordModal: React.FC<PasswordModalProps> = ({ isOpen, onClose, onSucces
                 </button>
               </div>
 
-      {error && (
-        <p className="text-red-500 text-sm font-bold">Galat Password! Dobara Koshish Karein</p>
-      )}
+              {error && (
+                <p className="text-red-500 text-sm font-bold animate-pulse">
+                  {errorMessage || (language === 'romanUrdu' ? 'Galat Password! Dobara Koshish Karein' : 'Incorrect Password! Please try again')}
+                </p>
+              )}
 
       <button
         type="submit"

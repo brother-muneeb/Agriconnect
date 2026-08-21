@@ -23,7 +23,8 @@ import {
   ChevronRight,
   Sparkles,
   TrendingUp,
-  Award
+  Award,
+  Tag
 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, updateDoc, collection, query, onSnapshot, orderBy, where } from 'firebase/firestore';
@@ -116,6 +117,9 @@ export const SellerDashboard: React.FC = () => {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'profile'>('overview');
   
+  // Pending Price / Discount Requests State
+  const [myRequests, setMyRequests] = useState<any[]>([]);
+
   // Edit Profile Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editForm, setEditForm] = useState<Partial<SellerData>>({});
@@ -238,14 +242,44 @@ export const SellerDashboard: React.FC = () => {
         console.warn('Orders listener notice:', error);
         setOrdersLoading(false);
       });
+
+      // Listen to pending changes for this seller
+      let unsubscribeRequests: (() => void) | undefined;
+      try {
+        const stored = localStorage.getItem('ac_user');
+        let currentUid = '';
+        if (stored) {
+          try { currentUid = JSON.parse(stored).uid || ''; } catch (e) {}
+        }
+        if (!currentUid && auth.currentUser) {
+          currentUid = auth.currentUser.uid;
+        }
+
+        const reqQuery = query(collection(db, 'pendingChanges'), orderBy('requestedAt', 'desc'));
+        unsubscribeRequests = onSnapshot(reqQuery, (snapshot) => {
+          const reqs: any[] = [];
+          snapshot.forEach((d) => {
+            const data = d.data();
+            if (!currentUid || data.sellerUid === currentUid) {
+              reqs.push({ id: d.id, ...data });
+            }
+          });
+          setMyRequests(reqs);
+        }, (err) => {
+          console.warn('Pending changes notice:', err);
+        });
+      } catch (err) {
+        console.warn('Could not listen to pending changes:', err);
+      }
+
+      return () => {
+        if (unsubscribeOrders) unsubscribeOrders();
+        if (unsubscribeRequests) unsubscribeRequests();
+      };
     } catch (e) {
       console.warn('Could not attach orders listener:', e);
       setOrdersLoading(false);
     }
-
-    return () => {
-      if (unsubscribeOrders) unsubscribeOrders();
-    };
   }, []);
 
   // Update order status
@@ -725,6 +759,82 @@ export const SellerDashboard: React.FC = () => {
                   </p>
                 )}
               </div>
+            </div>
+
+            {/* Rate List & Price Requests Tracker */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700 shadow-sm">
+              <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Tag className="w-5 h-5 text-agri-green" />
+                    {isUrdu ? 'Rate List & Price Change Requests' : 'Rate List & Price Change Requests'}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {isUrdu 
+                      ? 'Aapki taraf se rate ya discount badalne ki darkhastain aur unka status.' 
+                      : 'Status of your rate and discount change requests submitted for admin approval.'}
+                  </p>
+                </div>
+
+                <a
+                  href="/kisan-tips?tab=rates"
+                  className="px-4 py-2 bg-agri-green/10 hover:bg-agri-green hover:text-white text-agri-green font-bold rounded-xl transition-all text-sm flex items-center gap-1.5"
+                >
+                  <span>{isUrdu ? 'Rate List Dekhein & Request Karein' : 'View Rate List & Propose Rates'}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </a>
+              </div>
+
+              {myRequests.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 dark:bg-gray-900/40 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                    {isUrdu 
+                      ? 'Abhi tak koi rate ya discount request submit nahi hui. Rate List mein ja kar apni products par click kar ke request bhejein.' 
+                      : 'No price change requests submitted yet. Click your products on the Rate List to propose changes.'}
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {myRequests.slice(0, 4).map((req) => (
+                    <div 
+                      key={req.id} 
+                      className="p-4 rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/40 flex flex-col justify-between"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-gray-900 dark:text-white text-base">
+                          {req.productName}
+                        </span>
+                        {req.status === 'pending' && (
+                          <span className="text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 px-2.5 py-0.5 rounded-full">
+                            🟡 {isUrdu ? 'Pending Approval' : 'Pending Approval'}
+                          </span>
+                        )}
+                        {req.status === 'approved' && (
+                          <span className="text-[11px] font-bold bg-green-100 text-green-800 dark:bg-green-950/60 dark:text-green-300 px-2.5 py-0.5 rounded-full">
+                            🟢 {isUrdu ? 'Approved' : 'Approved'}
+                          </span>
+                        )}
+                        {req.status === 'rejected' && (
+                          <span className="text-[11px] font-bold bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300 px-2.5 py-0.5 rounded-full">
+                            🔴 {isUrdu ? 'Rejected' : 'Rejected'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-4 text-xs font-semibold text-gray-600 dark:text-gray-300 mt-1">
+                        <div>
+                          Rate: <span className="text-gray-400 line-through">Rs.{req.currentPrice}</span> → <span className="text-agri-green font-bold">Rs.{req.requestedPrice}</span>
+                        </div>
+                        {req.requestedDiscount > 0 && (
+                          <div>
+                            Discount: <span className="text-red-500 font-bold">{req.requestedDiscount}% OFF</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Recent Orders Table */}
