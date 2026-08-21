@@ -60,6 +60,11 @@ export const ProductProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'products');
+      // If offline or network issue, populate with local default data immediately
+      const initialData = [...initialVegetables, ...initialFruits, ...initialDryFruits, ...initialGrains];
+      setAllProducts(prev => prev.length > 0 ? prev : initialData);
+      initAgriData(initialData);
+      setLoading(false);
     });
 
     // Start global refresh interval (every 1 second)

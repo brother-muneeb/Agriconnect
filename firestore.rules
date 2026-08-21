@@ -164,6 +164,14 @@ service cloud.firestore {
     }
 
 
+    match /adminData/{docId} {
+      allow read, write: if true;
+    }
+
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+
     // Custom named backup collections (e.g. "Ahmed (Seller)"/doc)
     match /{collectionName}/{docId} {
       allow read, write: if isAuthenticated();

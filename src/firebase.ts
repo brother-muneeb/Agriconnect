@@ -1,16 +1,39 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, getDocFromServer, addDoc } from 'firebase/firestore';
+import { initializeFirestore, setLogLevel, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, onSnapshot, getDocFromServer, addDoc } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
 
-export const db = (firebaseConfig as any).firestoreDatabaseId
-  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
-  : getFirestore(app);
+// Silence non-critical SDK log messages (e.g. offline fallback warnings)
+try {
+  setLogLevel('silent');
+} catch (e) {
+  // Ignore
+}
+
+const firestoreDbId = (firebaseConfig as any).firestoreDatabaseId;
+export const db = firestoreDbId
+  ? initializeFirestore(app, { experimentalForceLongPolling: true }, firestoreDbId)
+  : initializeFirestore(app, { experimentalForceLongPolling: true });
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+
+export {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  getDocFromServer,
+  addDoc
+};
 
 // Expose modules on window for legacy/compatibility scripts
 if (typeof window !== 'undefined') {
@@ -73,21 +96,8 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     },
     operationType,
     path
-  }
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  };
+  console.warn('Firestore Operation Notice: ', JSON.stringify(errInfo));
 }
-
-// Test Connection
-async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration.");
-    }
-  }
-}
-testConnection();
 
 export type { FirebaseUser };

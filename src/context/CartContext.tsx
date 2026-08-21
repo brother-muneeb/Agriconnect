@@ -29,12 +29,20 @@ export const useCart = () => {
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { allProducts } = useProducts();
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem('agriconnect_cart');
-    return savedCart ? JSON.parse(savedCart) : [];
+    const savedCart = localStorage.getItem('ac_cart') || localStorage.getItem('agriconnect_cart');
+    if (savedCart) {
+      try {
+        return JSON.parse(savedCart);
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
   });
   const [isCartSidebarOpen, setIsCartSidebarOpen] = useState(false);
 
   useEffect(() => {
+    localStorage.setItem('ac_cart', JSON.stringify(cartItems));
     localStorage.setItem('agriconnect_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
@@ -100,6 +108,10 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setCartItems([]);
+    localStorage.removeItem('ac_cart');
+    localStorage.setItem('ac_cart', '[]');
+    localStorage.removeItem('agriconnect_cart');
+    localStorage.setItem('agriconnect_cart', '[]');
   };
 
   const getMultiplier = (weight: string) => {

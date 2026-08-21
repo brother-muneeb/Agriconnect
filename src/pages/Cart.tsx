@@ -8,6 +8,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { cn } from '../lib/utils';
 import confetti from 'canvas-confetti';
 import { isPunjabCity } from '../utils/categoryMatcher';
+import { db, auth, doc, getDoc, setDoc, addDoc, collection } from '../firebase';
 
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, clearCart, cartTotal, getCurrentPriceData } = useCart();
@@ -57,7 +58,7 @@ const Cart = () => {
   const codCharges = 0;
   const grandTotal = cartTotal + deliveryCharges + codCharges;
 
-  const handleWhatsAppOrder = (finalOrderNum?: string) => {
+  const handleWhatsAppOrder = (finalOrderNum?: string, itemsToUse = cartItems, subtotalToUse = cartTotal) => {
     const targetNum = "+923019515764".replace('+', '');
     const numToDisplay = finalOrderNum || orderNumber || "AGC0001";
     
@@ -68,7 +69,7 @@ const Cart = () => {
     message += `💬 *WhatsApp:* ${whatsapp}\n\n`;
     
     message += `📦 *Order Details:*\n`;
-    cartItems.forEach(item => {
+    itemsToUse.forEach(item => {
       const priceData = getCurrentPriceData(item.name, item.price);
       const itemTotal = priceData.finalPrice * item.quantity * getMultiplier(item.selectedWeight);
       
@@ -79,9 +80,10 @@ const Cart = () => {
       }
     });
     
-    message += `\n💰 *Subtotal:* Rs.${cartTotal}`;
+    const computedGrandTotal = subtotalToUse + deliveryCharges + codCharges;
+    message += `\n💰 *Subtotal:* Rs.${subtotalToUse}`;
     message += `\n🚚 *Delivery:* Free`;
-    message += `\n*Total:* Rs.${grandTotal}\n\n`;
+    message += `\n*Total:* Rs.${computedGrandTotal}\n\n`;
     
     message += `📍 *Delivery Pata:*\n${address}\n${area ? area + ', ' : ''}${city}, Punjab\n\n`;
     message += `💳 *Payment Method:* ${paymentMethod.toUpperCase()}\n\n`;
@@ -90,7 +92,7 @@ const Cart = () => {
     window.open(`https://wa.me/${targetNum}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const handleEmailOrder = (finalOrderNum?: string) => {
+  const handleEmailOrder = (finalOrderNum?: string, itemsToUse = cartItems, subtotalToUse = cartTotal) => {
     const numToUse = finalOrderNum || orderNumber;
     const subject = `AgriConnect - Order ${numToUse} Confirm Ho Gaya! 🌿`;
     const today = new Date().toLocaleDateString('en-PK');
@@ -108,7 +110,7 @@ const Cart = () => {
     body += `🛒 AAPNE ORDER KIYA\n`;
     body += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
     
-    cartItems.forEach(item => {
+    itemsToUse.forEach(item => {
       const priceData = getCurrentPriceData(item.name, item.price);
       const itemTotal = priceData.finalPrice * item.quantity * getMultiplier(item.selectedWeight);
       
@@ -119,13 +121,14 @@ const Cart = () => {
       }
     });
     
+    const computedGrandTotal = subtotalToUse + deliveryCharges + codCharges;
     body += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
     body += `💰 PAYMENT SUMMARY\n`;
     body += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
-    body += `Subtotal:     Rs.${cartTotal}\n`;
+    body += `Subtotal:     Rs.${subtotalToUse}\n`;
     body += `Delivery:     Free\n`;
     body += `──────────────────────\n`;
-    body += `Total:        Rs.${grandTotal}\n\n`;
+    body += `Total:        Rs.${computedGrandTotal}\n\n`;
     body += `Payment Method: ${paymentMethod.toUpperCase()}\n\n`;
     body += `━━━━━━━━━━━━━━━━━━━━━\n`;
     body += `📍 DELIVERY ADDRESS\n`;
@@ -151,17 +154,14 @@ const Cart = () => {
 
   const saveOrderToFirebase = async (orderData: any) => {
     try {
-      const firebaseModules = (window as any).firebaseModules;
-      const db = (window as any).db;
-      
-      // Get current order number
-      const counterDoc = await firebaseModules.getDoc(
-        firebaseModules.doc(db, "adminData", "orderCounter")
-      );
-      
       let orderNum = 1;
-      if(counterDoc.exists()){
-        orderNum = counterDoc.data().count + 1;
+      try {
+        const counterDoc = await getDoc(doc(db, "adminData", "orderCounter"));
+        if (counterDoc.exists()) {
+          orderNum = (counterDoc.data()?.count || 0) + 1;
+        }
+      } catch (e) {
+        console.warn("Counter fetch notice:", e);
       }
       
       // Format order number AGC0001
@@ -169,10 +169,11 @@ const Cart = () => {
       
       // Get logged in user
       const acUser = JSON.parse(localStorage.getItem("ac_user") || "{}");
+      const currentUid = acUser.uid || auth.currentUser?.uid || "guest";
       
       // Save order to Firestore
-      await firebaseModules.addDoc(
-        firebaseModules.collection(db, "orders"),
+      await addDoc(
+        collection(db, "orders"),
         {
           orderNumber: orderNumber,
           orderDate: new Date(),
@@ -181,11 +182,11 @@ const Cart = () => {
           customerProvince: isPunjabCity(orderData.city) ? "Punjab" : "Other",
           
           customerInfo: {
-            uid: acUser.uid || "guest",
+            uid: currentUid,
             name: orderData.customerName,
             phone: orderData.phone,
             whatsapp: orderData.whatsapp,
-            email: acUser.email || ""
+            email: acUser.email || auth.currentUser?.email || email || ""
           },
           
           deliveryAddress: {
@@ -202,9 +203,9 @@ const Cart = () => {
             quantity: p.quantity,
             weight: p.selectedWeight,
             originalPrice: p.price,
-            discount: 0, // Should be calculated if available
-            finalPrice: p.price,
-            totalPrice: p.price * p.quantity
+            discount: p.discount || 0,
+            finalPrice: p.finalPrice || p.price,
+            totalPrice: (p.finalPrice || p.price) * p.quantity
           })),
           
           orderSummary: {
@@ -229,10 +230,15 @@ const Cart = () => {
       );
       
       // Update order counter
-      await firebaseModules.setDoc(
-        firebaseModules.doc(db, "adminData", "orderCounter"),
-        { count: orderNum }
-      );
+      try {
+        await setDoc(
+          doc(db, "adminData", "orderCounter"),
+          { count: orderNum },
+          { merge: true }
+        );
+      } catch (e) {
+        console.warn("Counter save notice:", e);
+      }
       
       // Update localStorage order number
       localStorage.setItem("ac_last_order", orderNumber);
@@ -248,6 +254,10 @@ const Cart = () => {
   const handleCompleteOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    const orderedProducts = [...cartItems];
+    const orderedSubtotal = cartTotal;
+
+    // Step 1: Save order to Firebase
     const finalOrderNum = await saveOrderToFirebase({
       customerName,
       phone,
@@ -256,8 +266,8 @@ const Cart = () => {
       area,
       address,
       landmark,
-      products: cartItems,
-      subtotal: cartTotal,
+      products: orderedProducts,
+      subtotal: orderedSubtotal,
       paymentMethod
     });
     
@@ -266,12 +276,20 @@ const Cart = () => {
     setOrderDate(now.toLocaleDateString('en-PK'));
     setOrderTime(now.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }));
     
+    // Step 2: Clear cart completely (from state and localStorage)
+    clearCart();
+    localStorage.removeItem('ac_cart');
+    localStorage.setItem('ac_cart', '[]');
+    localStorage.removeItem('agriconnect_cart');
+    localStorage.setItem('agriconnect_cart', '[]');
+    
+    // Step 3: Show success message
     setIsOrderComplete(true);
     
     // Automatically open WhatsApp AND Email
     setTimeout(() => {
-      handleWhatsAppOrder(finalOrderNum);
-      handleEmailOrder(finalOrderNum);
+      handleWhatsAppOrder(finalOrderNum, orderedProducts, orderedSubtotal);
+      handleEmailOrder(finalOrderNum, orderedProducts, orderedSubtotal);
     }, 1000);
   };
 
@@ -722,12 +740,15 @@ const Cart = () => {
                   </motion.div>
                 </motion.div>
 
-                <div className="space-y-4 text-center">
+                <div className="space-y-3 text-center">
                   <h2 className="text-2xl font-serif font-bold text-gray-900 leading-tight">
-                    {language === 'romanUrdu' ? 'Order Place Ho Gaya!' : 'Order Placed Successfully!'}
+                    {language === 'romanUrdu' ? 'Aapka Order Place Ho Gaya!' : 'Your Order Placed Successfully!'}
                   </h2>
+                  <p className="text-sm font-semibold text-agri-green">
+                    {language === 'romanUrdu' ? 'Cart Saaf Ho Gai Hai.' : 'Cart has been cleared.'}
+                  </p>
                   
-                  <p className="text-xl font-bold font-serif text-agri-green">
+                  <p className="text-lg font-bold font-serif text-gray-700">
                     {language === 'romanUrdu' ? `🎉 Shukriya ${customerName}!` : `🎉 Thank You ${customerName}!`}
                   </p>
 

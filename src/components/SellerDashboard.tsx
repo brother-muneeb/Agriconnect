@@ -24,7 +24,13 @@ import {
   Sparkles,
   TrendingUp,
   Award,
-  Tag
+  Tag,
+  MessageCircle,
+  Mail,
+  Calendar,
+  CreditCard,
+  Save,
+  ArrowUpRight
 } from 'lucide-react';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, updateDoc, collection, query, onSnapshot, orderBy, where } from 'firebase/firestore';
@@ -71,6 +77,7 @@ interface OrderItem {
     phone?: string;
     whatsapp?: string;
     email?: string;
+    uid?: string;
   };
   deliveryAddress?: {
     city?: string;
@@ -85,6 +92,8 @@ interface OrderItem {
     quantity: number;
     weight?: string;
     price?: number;
+    originalPrice?: number;
+    discount?: number;
     finalPrice?: number;
     totalPrice?: number;
   }>;
@@ -92,6 +101,14 @@ interface OrderItem {
     subtotal?: number;
     deliveryCharges?: number;
     total?: number;
+  };
+  paymentMethod?: string;
+  orderStatus?: string;
+  trackingStages?: {
+    received?: any;
+    preparing?: any;
+    onTheWay?: any;
+    delivered?: any;
   };
   status?: 'pending' | 'processing' | 'dispatched' | 'delivered' | 'cancelled';
   sellerItems?: Array<{
@@ -117,6 +134,12 @@ export const SellerDashboard: React.FC = () => {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'products' | 'profile'>('overview');
   
+  // Order Details Modal State
+  const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
+  const [modalStatusInput, setModalStatusInput] = useState<string>('Received');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
+  const [statusUpdateSuccess, setStatusUpdateSuccess] = useState<string>('');
+
   // Pending Price / Discount Requests State
   const [myRequests, setMyRequests] = useState<any[]>([]);
 
@@ -130,6 +153,134 @@ export const SellerDashboard: React.FC = () => {
   const [newProductInput, setNewProductInput] = useState('');
   const [orderFilter, setOrderFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Format Pakistani WhatsApp number (e.g. 03001234567 -> 923001234567)
+  const formatWhatsAppNumber = (phoneStr?: string) => {
+    if (!phoneStr) return '';
+    let cleaned = phoneStr.replace(/[^0-9]/g, '');
+    if (cleaned.startsWith('0')) {
+      cleaned = '92' + cleaned.slice(1);
+    }
+    return cleaned;
+  };
+
+  // Get normalized status for display and select options
+  const getNormalizedStatus = (ord?: OrderItem | null): string => {
+    if (!ord) return 'Received';
+    if (ord.orderStatus) {
+      const lower = ord.orderStatus.toLowerCase();
+      if (lower.includes('deliv')) return 'Delivered';
+      if (lower.includes('way') || lower.includes('dispatch') || lower.includes('rider')) return 'On The Way';
+      if (lower.includes('prep') || lower.includes('process') || lower.includes('tayyar')) return 'Preparing';
+      return 'Received';
+    }
+    if (ord.status === 'delivered') return 'Delivered';
+    if (ord.status === 'dispatched') return 'On The Way';
+    if (ord.status === 'processing') return 'Preparing';
+    return 'Received';
+  };
+
+  // Format order date & time cleanly
+  const formatOrderDate = (orderDate?: any, orderTime?: string) => {
+    let datePart = '';
+    if (orderDate) {
+      if (typeof orderDate.toDate === 'function') {
+        datePart = orderDate.toDate().toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+      } else if (orderDate.seconds) {
+        datePart = new Date(orderDate.seconds * 1000).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+      } else if (typeof orderDate === 'string') {
+        datePart = orderDate;
+      }
+    }
+    if (datePart && orderTime) {
+      return `${datePart}, ${orderTime}`;
+    }
+    return datePart || orderTime || 'Today';
+  };
+
+  // Open Order Details Modal
+  const handleOpenOrderDetails = (order: OrderItem) => {
+    setSelectedOrder(order);
+    setModalStatusInput(getNormalizedStatus(order));
+    setStatusUpdateSuccess('');
+  };
+
+  // Close Order Details Modal
+  const handleCloseOrderDetails = () => {
+    setSelectedOrder(null);
+    setStatusUpdateSuccess('');
+  };
+
+  // Update order status in Firebase
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: string) => {
+    setIsUpdatingStatus(true);
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      
+      let legacyStatus: OrderItem['status'] = 'pending';
+      if (newStatus === 'Preparing') legacyStatus = 'processing';
+      if (newStatus === 'On The Way') legacyStatus = 'dispatched';
+      if (newStatus === 'Delivered') legacyStatus = 'delivered';
+
+      const trackingUpdates: any = {};
+      const now = new Date();
+      if (newStatus === 'Received') trackingUpdates['trackingStages.received'] = now;
+      if (newStatus === 'Preparing') trackingUpdates['trackingStages.preparing'] = now;
+      if (newStatus === 'On The Way') trackingUpdates['trackingStages.onTheWay'] = now;
+      if (newStatus === 'Delivered') trackingUpdates['trackingStages.delivered'] = now;
+
+      await updateDoc(orderRef, {
+        orderStatus: newStatus,
+        status: legacyStatus,
+        ...trackingUpdates
+      });
+
+      // Update in local state
+      setOrders(prev => prev.map(o => {
+        if (o.id === orderId) {
+          return {
+            ...o,
+            orderStatus: newStatus,
+            status: legacyStatus,
+            trackingStages: {
+              ...o.trackingStages,
+              ...(newStatus === 'Received' ? { received: now } : {}),
+              ...(newStatus === 'Preparing' ? { preparing: now } : {}),
+              ...(newStatus === 'On The Way' ? { onTheWay: now } : {}),
+              ...(newStatus === 'Delivered' ? { delivered: now } : {})
+            }
+          };
+        }
+        return o;
+      }));
+
+      // Update selected modal order
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder(prev => prev ? {
+          ...prev,
+          orderStatus: newStatus,
+          status: legacyStatus,
+          trackingStages: {
+            ...prev.trackingStages,
+            ...(newStatus === 'Received' ? { received: now } : {}),
+            ...(newStatus === 'Preparing' ? { preparing: now } : {}),
+            ...(newStatus === 'On The Way' ? { onTheWay: now } : {}),
+            ...(newStatus === 'Delivered' ? { delivered: now } : {})
+          }
+        } : null);
+      }
+
+      setStatusUpdateSuccess(isUrdu ? 'Status kamyabi se update ho gaya!' : 'Status updated successfully!');
+      setTimeout(() => {
+        setStatusUpdateSuccess('');
+      }, 2500);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert(isUrdu ? 'Status update nahi ho saka. Dobara koshish karein.' : 'Failed to update order status. Please try again.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
 
   // Load seller data from Firebase
   useEffect(() => {
@@ -233,7 +384,10 @@ export const SellerDashboard: React.FC = () => {
             deliveryAddress: data.deliveryAddress || {},
             products: data.products || [],
             orderSummary: data.orderSummary || { total: 0 },
-            status: data.status || data.orderStatus || 'pending'
+            paymentMethod: data.paymentMethod || 'Cash On Delivery',
+            orderStatus: data.orderStatus || (data.status === 'processing' ? 'Preparing' : data.status === 'dispatched' ? 'On The Way' : data.status === 'delivered' ? 'Delivered' : 'Received'),
+            trackingStages: data.trackingStages || {},
+            status: data.status || (data.orderStatus === 'Preparing' ? 'processing' : data.orderStatus === 'On The Way' ? 'dispatched' : data.orderStatus === 'Delivered' ? 'delivered' : 'pending')
           });
         });
         setOrders(fetchedOrders);
@@ -281,17 +435,6 @@ export const SellerDashboard: React.FC = () => {
       setOrdersLoading(false);
     }
   }, []);
-
-  // Update order status
-  const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderItem['status']) => {
-    try {
-      const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, { status: newStatus });
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-    } catch (err) {
-      console.error('Failed to update status:', err);
-    }
-  };
 
   // Toggle category on/off for seller
   const handleToggleCategory = (categoryNameOrKey: string) => {
@@ -891,65 +1034,76 @@ export const SellerDashboard: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {sellerRelevantOrders.slice(0, 5).map((ord) => (
-                        <tr key={ord.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-750 transition-colors">
-                          <td className="py-4 font-mono font-bold text-agri-orange">
-                            #{ord.orderNumber}
-                          </td>
-                          <td className="py-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                            <div className="font-semibold text-gray-800 dark:text-gray-200">
-                              {ord.orderTime || (ord.orderDate ? new Date(ord.orderDate.toDate ? ord.orderDate.toDate() : ord.orderDate).toLocaleDateString() : 'Today')}
-                            </div>
-                          </td>
-                          <td className="py-4">
-                            <div className="font-bold text-gray-900 dark:text-white">
-                              {ord.customerInfo?.name || 'Customer'}
-                            </div>
-                            <div className="text-xs text-gray-400">
-                              {ord.customerInfo?.phone || ord.deliveryAddress?.city || 'Punjab'}
-                            </div>
-                          </td>
-                          <td className="py-4">
-                            <div className="text-gray-700 dark:text-gray-300 max-w-xs truncate font-medium">
-                              {ord.sellerItems && ord.sellerItems.length > 0 
-                                ? ord.sellerItems.map(p => `${p.name} (${p.quantity}x)`).join(', ')
-                                : 'Fresh Farm Items'}
-                            </div>
-                            {ord.products && ord.sellerItems && ord.products.length > ord.sellerItems.length && (
-                              <div className="text-[10px] text-gray-400 italic mt-0.5">
-                                +{ord.products.length - ord.sellerItems.length} other items in order
+                      {sellerRelevantOrders.slice(0, 5).map((ord) => {
+                        const statusBadge = getNormalizedStatus(ord);
+                        return (
+                          <tr 
+                            key={ord.id} 
+                            onClick={() => handleOpenOrderDetails(ord)}
+                            className="hover:bg-orange-50/40 dark:hover:bg-gray-750 transition-colors cursor-pointer group"
+                          >
+                            <td className="py-4 font-mono font-bold text-agri-orange flex items-center gap-1.5">
+                              <span>#{ord.orderNumber}</span>
+                              <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity text-agri-orange" />
+                            </td>
+                            <td className="py-4 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                              <div className="font-semibold text-gray-800 dark:text-gray-200">
+                                {formatOrderDate(ord.orderDate, ord.orderTime)}
                               </div>
-                            )}
-                          </td>
-                          <td className="py-4 font-bold text-gray-900 dark:text-white whitespace-nowrap">
-                            Rs. {(ord.sellerTotal || ord.orderSummary?.total || 0).toLocaleString()}
-                          </td>
-                          <td className="py-4">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold capitalize ${
-                              ord.status === 'delivered' 
-                                ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-                                : ord.status === 'processing'
-                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                                : ord.status === 'dispatched'
-                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                                : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                            }`}>
-                              {ord.status || 'pending'}
-                            </span>
-                          </td>
-                          <td className="py-4 text-right">
-                            <button
-                              onClick={() => {
-                                const nextStatus = ord.status === 'pending' ? 'processing' : ord.status === 'processing' ? 'dispatched' : 'delivered';
-                                handleUpdateOrderStatus(ord.id, nextStatus as any);
-                              }}
-                              className="text-xs bg-gray-100 dark:bg-gray-700 hover:bg-agri-orange hover:text-white text-gray-700 dark:text-gray-200 font-bold px-3 py-1.5 rounded-lg transition-colors"
-                            >
-                              {ord.status === 'delivered' ? 'Completed' : 'Update Status'}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            <td className="py-4">
+                              <div className="font-bold text-gray-900 dark:text-white">
+                                {ord.customerInfo?.name || 'Customer'}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 mt-0.5">
+                                <span>{ord.customerInfo?.phone || ord.customerInfo?.whatsapp || 'No Phone'}</span>
+                                <span>•</span>
+                                <span>{ord.deliveryAddress?.city || ord.customerCity || 'Punjab'}</span>
+                              </div>
+                            </td>
+                            <td className="py-4">
+                              <div className="text-gray-700 dark:text-gray-300 max-w-xs truncate font-medium">
+                                {ord.sellerItems && ord.sellerItems.length > 0 
+                                  ? ord.sellerItems.map(p => `${p.name} (${p.quantity}x)`).join(', ')
+                                  : 'Fresh Farm Items'}
+                              </div>
+                              {ord.products && ord.sellerItems && ord.products.length > ord.sellerItems.length && (
+                                <div className="text-[10px] text-gray-400 italic mt-0.5">
+                                  +{ord.products.length - ord.sellerItems.length} other items in cart
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-4 font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                              Rs. {(ord.sellerTotal || ord.orderSummary?.total || 0).toLocaleString()}
+                            </td>
+                            <td className="py-4">
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                                statusBadge === 'Delivered'
+                                  ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                                  : statusBadge === 'Preparing'
+                                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                                  : statusBadge === 'On The Way'
+                                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                              }`}>
+                                {statusBadge}
+                              </span>
+                            </td>
+                            <td className="py-4 text-right">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenOrderDetails(ord);
+                                }}
+                                className="text-xs bg-agri-orange/10 hover:bg-agri-orange hover:text-white text-agri-orange font-bold px-3.5 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1"
+                              >
+                                <span>{isUrdu ? 'Order Details' : 'Order Details'}</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1009,122 +1163,175 @@ export const SellerDashboard: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredOrders.map((ord) => (
-                  <div 
-                    key={ord.id}
-                    className="bg-gray-50 dark:bg-gray-900/60 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-4 hover:border-agri-orange transition-all"
-                  >
-                    <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3">
-                      <div>
-                        <span className="font-mono text-sm font-bold text-agri-orange">
-                          #{ord.orderNumber}
-                        </span>
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {ord.orderTime || 'Just now'}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {filteredOrders.map((ord) => {
+                  const statusBadge = getNormalizedStatus(ord);
+                  const matchedItems = ord.sellerItems && ord.sellerItems.length > 0 ? ord.sellerItems : (ord.products || []);
+                  const whatsappNum = formatWhatsAppNumber(ord.customerInfo?.whatsapp || ord.customerInfo?.phone || '');
+                  const customerName = ord.customerInfo?.name || 'Customer';
+                  const orderNum = ord.orderNumber || ord.id.slice(0, 8).toUpperCase();
+                  const waMessage = `Assalam o Alaikum ${customerName}!\nMain AgriConnect seller hoon.\nAapka order ${orderNum}\nprocess ho raha hai.`;
+                  const waUrl = `https://wa.me/${whatsappNum}?text=${encodeURIComponent(waMessage)}`;
+                  const phoneUrl = `tel:${(ord.customerInfo?.phone || ord.customerInfo?.whatsapp || '').replace(/\s+/g, '')}`;
+
+                  return (
+                    <div 
+                      key={ord.id}
+                      className="bg-white dark:bg-gray-850 p-6 rounded-3xl border border-gray-200/80 dark:border-gray-700/80 space-y-4 hover:border-agri-orange/60 shadow-sm transition-all flex flex-col justify-between"
+                    >
+                      <div className="space-y-4">
+                        {/* Header & Status */}
+                        <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/60 pb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-base font-black text-agri-orange">
+                                #{ord.orderNumber}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 font-medium">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>{formatOrderDate(ord.orderDate, ord.orderTime)}</span>
+                            </div>
+                          </div>
+
+                          <span className={`px-3 py-1 rounded-full text-xs font-black capitalize ${
+                            statusBadge === 'Delivered'
+                              ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                              : statusBadge === 'Preparing'
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                              : statusBadge === 'On The Way'
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                          }`}>
+                            {statusBadge}
+                          </span>
+                        </div>
+
+                        {/* Customer & Delivery Details */}
+                        <div className="bg-gray-50/70 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 space-y-2.5 text-sm">
+                          <div className="flex items-center justify-between">
+                            <div className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-full bg-agri-orange/10 text-agri-orange flex items-center justify-center font-black text-xs">
+                                <User className="w-3.5 h-3.5" />
+                              </div>
+                              <span className="text-base">{ord.customerInfo?.name || 'Customer'}</span>
+                            </div>
+                            <span className="text-[11px] font-bold text-gray-500 bg-white dark:bg-gray-800 px-2.5 py-1 rounded-lg border border-gray-200/60 dark:border-gray-700">
+                              {ord.paymentMethod || 'Cash on Delivery'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300 pt-1">
+                            {ord.customerInfo?.phone && (
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <Phone className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                <span>{ord.customerInfo.phone}</span>
+                              </div>
+                            )}
+                            {ord.customerInfo?.whatsapp && (
+                              <div className="flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                                <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                                <span>WA: {ord.customerInfo.whatsapp}</span>
+                              </div>
+                            )}
+                            {ord.customerInfo?.email && (
+                              <div className="flex items-center gap-1.5 font-medium sm:col-span-2 truncate">
+                                <Mail className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                                <span className="truncate">{ord.customerInfo.email}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {(ord.deliveryAddress?.address || ord.deliveryAddress?.city) && (
+                            <div className="text-xs text-gray-600 dark:text-gray-300 flex items-start gap-1.5 pt-1 border-t border-gray-200/50 dark:border-gray-800">
+                              <MapPin className="w-3.5 h-3.5 text-agri-orange mt-0.5 flex-shrink-0" />
+                              <span>
+                                {ord.deliveryAddress.address ? `${ord.deliveryAddress.address}, ` : ''}
+                                {ord.deliveryAddress.area ? `${ord.deliveryAddress.area}, ` : ''}
+                                <strong className="text-gray-900 dark:text-white">{ord.deliveryAddress.city || ord.customerCity || 'Punjab'}</strong>
+                                {ord.deliveryAddress.landmark ? ` (Near: ${ord.deliveryAddress.landmark})` : ''}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Ordered Items Matching Seller */}
+                        <div className="bg-gray-50/50 dark:bg-gray-800/60 p-4 rounded-2xl border border-gray-200/70 dark:border-gray-700 text-xs space-y-2">
+                          <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 font-bold mb-1">
+                            <span className="flex items-center gap-1.5">
+                              <Package className="w-3.5 h-3.5 text-agri-green" />
+                              {isUrdu ? 'Aapke Products (Items for you):' : 'Your Matched Products:'}
+                            </span>
+                            <span className="text-xs text-agri-orange font-black">
+                              {matchedItems.length} {isUrdu ? 'items' : 'item(s)'}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                            {matchedItems.map((item, i) => (
+                              <div key={i} className="flex items-center justify-between text-gray-800 dark:text-gray-200 py-1 border-b border-gray-100 dark:border-gray-750 last:border-0">
+                                <div className="font-medium pr-2">
+                                  <span className="font-bold text-gray-900 dark:text-white">{item.name}</span>
+                                  {item.weight && <span className="text-gray-500 dark:text-gray-400 text-[11px] ml-1">({item.weight})</span>}
+                                  <span className="text-agri-orange font-bold text-[11px] ml-2">× {item.quantity}</span>
+                                </div>
+                                <span className="font-black text-gray-900 dark:text-white whitespace-nowrap">
+                                  Rs. {(item.totalPrice || item.finalPrice || ((item.price || 0) * item.quantity) || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {ord.products && ord.sellerItems && ord.products.length > ord.sellerItems.length && (
+                            <div className="bg-white dark:bg-gray-750 px-2.5 py-1.5 rounded-lg text-[11px] text-gray-500 dark:text-gray-400 border border-gray-200/60 dark:border-gray-700 flex items-center justify-between mt-1">
+                              <span>+ {ord.products.length - ord.sellerItems.length} other items in cart</span>
+                              <span className="text-[10px] text-gray-400 font-semibold">Other sellers</span>
+                            </div>
+                          )}
+
+                          <div className="border-t border-gray-200/80 dark:border-gray-700 pt-2.5 mt-2 flex items-center justify-between font-bold text-sm text-gray-900 dark:text-white">
+                            <span className="text-xs uppercase tracking-wider text-gray-500">{isUrdu ? 'Aapka Hissa (Your Total):' : 'Your Total:'}</span>
+                            <span className="text-agri-orange text-lg font-black">Rs. {(ord.sellerTotal || ord.orderSummary?.total || 0).toLocaleString()}</span>
+                          </div>
                         </div>
                       </div>
 
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold capitalize ${
-                        ord.status === 'delivered'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
-                          : ord.status === 'processing'
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
-                          : ord.status === 'dispatched'
-                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                          : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
-                      }`}>
-                        {ord.status || 'pending'}
-                      </span>
-                    </div>
+                      {/* Card Action Buttons */}
+                      <div className="space-y-2 pt-2">
+                        {/* Primary View Details Button */}
+                        <button
+                          onClick={() => handleOpenOrderDetails(ord)}
+                          className="w-full py-2.5 px-4 bg-agri-orange hover:bg-orange-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+                        >
+                          <ShoppingBag className="w-4 h-4" />
+                          <span>{isUrdu ? 'Full Order Details Dekhein' : 'View Full Order Details'}</span>
+                          <ChevronRight className="w-4 h-4 ml-auto" />
+                        </button>
 
-                    {/* Customer Info */}
-                    <div className="space-y-1 text-sm">
-                      <div className="font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                        <User className="w-4 h-4 text-gray-400" />
-                        {ord.customerInfo?.name || 'Customer'}
-                      </div>
-                      {ord.customerInfo?.phone && (
-                        <div className="text-xs text-gray-500 flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-gray-400" />
-                          <a href={`tel:${ord.customerInfo.phone}`} className="hover:underline text-agri-green">
-                            {ord.customerInfo.phone}
+                        {/* Quick Contact & Status Actions */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <a
+                            href={waUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="py-2 px-3 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>WhatsApp</span>
+                          </a>
+
+                          <a
+                            href={phoneUrl}
+                            className="py-2 px-3 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-blue-600" />
+                            <span>{isUrdu ? 'Call Karein' : 'Call Customer'}</span>
                           </a>
                         </div>
-                      )}
-                      {ord.deliveryAddress?.address && (
-                        <div className="text-xs text-gray-500 flex items-start gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                          <span>{ord.deliveryAddress.address}, {ord.deliveryAddress.city}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Ordered Items Matching Seller */}
-                    <div className="bg-white dark:bg-gray-800 p-3.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs space-y-2">
-                      <div className="flex items-center justify-between text-gray-500 dark:text-gray-400 font-semibold mb-1">
-                        <span>{isUrdu ? 'Aapke Products (Items for you):' : 'Your Matched Products:'}</span>
-                        <span className="text-[11px] text-agri-orange font-bold">
-                          {(ord.sellerItems || []).length} {isUrdu ? 'items' : 'item(s)'}
-                        </span>
-                      </div>
-                      {(ord.sellerItems && ord.sellerItems.length > 0 ? ord.sellerItems : (ord.products || [])).map((item, i) => (
-                        <div key={i} className="flex items-center justify-between text-gray-800 dark:text-gray-200 py-0.5">
-                          <span className="font-medium">• {item.name} {item.weight ? `(${item.weight})` : ''} <span className="text-gray-500 font-normal">x {item.quantity}</span></span>
-                          <span className="font-bold">Rs. {item.totalPrice || item.finalPrice || 0}</span>
-                        </div>
-                      ))}
-                      
-                      {ord.products && ord.sellerItems && ord.products.length > ord.sellerItems.length && (
-                        <div className="bg-gray-50 dark:bg-gray-750 px-2.5 py-1.5 rounded-lg text-[11px] text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                          <span>+ {ord.products.length - ord.sellerItems.length} other items in customer cart</span>
-                          <span className="text-[10px] text-gray-400">Routed to other sellers</span>
-                        </div>
-                      )}
-
-                      <div className="border-t border-gray-100 dark:border-gray-700 pt-2 mt-2 flex items-center justify-between font-bold text-sm text-gray-900 dark:text-white">
-                        <span>{isUrdu ? 'Aapka Hissa (Your Total):' : 'Your Order Total:'}</span>
-                        <span className="text-agri-orange text-base font-extrabold">Rs. {(ord.sellerTotal || ord.orderSummary?.total || 0).toLocaleString()}</span>
                       </div>
                     </div>
-
-                    {/* Status Changer Actions */}
-                    <div className="flex items-center gap-2 pt-1 flex-wrap">
-                      <button
-                        onClick={() => handleUpdateOrderStatus(ord.id, 'processing')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                          ord.status === 'processing'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-100'
-                        }`}
-                      >
-                        Processing
-                      </button>
-
-                      <button
-                        onClick={() => handleUpdateOrderStatus(ord.id, 'dispatched')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                          ord.status === 'dispatched'
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-100'
-                        }`}
-                      >
-                        Dispatched
-                      </button>
-
-                      <button
-                        onClick={() => handleUpdateOrderStatus(ord.id, 'delivered')}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                          ord.status === 'delivered'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-green-100'
-                        }`}
-                      >
-                        Delivered
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1492,6 +1699,319 @@ export const SellerDashboard: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+        {/* ORDER DETAILS POPUP MODAL */}
+        {selectedOrder && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-2xl bg-white dark:bg-gray-900 rounded-3xl p-6 md:p-8 shadow-2xl border border-gray-200 dark:border-gray-800 my-8 max-h-[92vh] overflow-y-auto flex flex-col justify-between"
+            >
+              <div>
+                {/* Modal Header */}
+                <div className="flex items-start justify-between border-b border-gray-100 dark:border-gray-800 pb-4 mb-6">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-agri-orange/10 text-agri-orange flex items-center justify-center font-bold">
+                        <ShoppingBag className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl md:text-2xl font-black text-gray-900 dark:text-white">
+                          Order Details
+                        </h3>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="font-mono text-xs font-bold text-agri-orange bg-orange-50 dark:bg-orange-950/40 px-2 py-0.5 rounded-md">
+                            #{selectedOrder.orderNumber}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {formatOrderDate(selectedOrder.orderDate, selectedOrder.orderTime)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleCloseOrderDetails}
+                    className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-center transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {statusUpdateSuccess && (
+                  <div className="mb-5 p-3.5 bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300 rounded-2xl text-xs font-bold flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{statusUpdateSuccess}</span>
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  {/* CUSTOMER INFO SECTION */}
+                  <div className="bg-gray-50/80 dark:bg-gray-800/60 rounded-2xl p-4 md:p-5 border border-gray-200/70 dark:border-gray-700/70 space-y-3">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                      <User className="w-4 h-4 text-agri-orange" />
+                      <span>Customer Info</span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <span className="text-xs text-gray-400 block font-medium">Full Name</span>
+                        <span className="font-bold text-gray-900 dark:text-white text-base">
+                          {selectedOrder.customerInfo?.name || 'Customer'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-400 block font-medium">Email Address</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 break-all">
+                          {selectedOrder.customerInfo?.email || 'Not provided'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-400 block font-medium">WhatsApp Number</span>
+                        <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 mt-0.5">
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          {selectedOrder.customerInfo?.whatsapp || selectedOrder.customerInfo?.phone || 'Not provided'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-400 block font-medium">Phone Number</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 mt-0.5">
+                          <Phone className="w-3.5 h-3.5 text-gray-400" />
+                          {selectedOrder.customerInfo?.phone || 'Not provided'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DELIVERY INFO SECTION */}
+                  <div className="bg-gray-50/80 dark:bg-gray-800/60 rounded-2xl p-4 md:p-5 border border-gray-200/70 dark:border-gray-700/70 space-y-3">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-agri-orange" />
+                      <span>Delivery Info</span>
+                    </h4>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      <div className="sm:col-span-2">
+                        <span className="text-xs text-gray-400 block font-medium">Complete Address</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {selectedOrder.deliveryAddress?.address || 'Not provided'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-400 block font-medium">Area / Mohalla</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {selectedOrder.deliveryAddress?.area || 'N/A'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-xs text-gray-400 block font-medium">City</span>
+                        <span className="font-bold text-gray-900 dark:text-white">
+                          {selectedOrder.deliveryAddress?.city || selectedOrder.customerCity || 'Punjab'}
+                        </span>
+                      </div>
+
+                      <div className="sm:col-span-2">
+                        <span className="text-xs text-gray-400 block font-medium">Landmark</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {selectedOrder.deliveryAddress?.landmark || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ORDER PRODUCTS SECTION (Only matching products) */}
+                  <div className="bg-gray-50/80 dark:bg-gray-800/60 rounded-2xl p-4 md:p-5 border border-gray-200/70 dark:border-gray-700/70 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <Package className="w-4 h-4 text-agri-green" />
+                        <span>Order Products (Your Items)</span>
+                      </h4>
+                      <span className="text-xs font-bold text-agri-orange">
+                        {(selectedOrder.sellerItems && selectedOrder.sellerItems.length > 0 ? selectedOrder.sellerItems : (selectedOrder.products || [])).length} item(s)
+                      </span>
+                    </div>
+
+                    <div className="divide-y divide-gray-200/70 dark:divide-gray-700">
+                      {(selectedOrder.sellerItems && selectedOrder.sellerItems.length > 0 ? selectedOrder.sellerItems : (selectedOrder.products || [])).map((item, idx) => {
+                        const itemPrice = item.totalPrice || item.finalPrice || ((item.price || 0) * (item.quantity || 1));
+                        return (
+                          <div key={idx} className="py-2.5 flex items-center justify-between text-sm first:pt-0 last:pb-0">
+                            <div>
+                              <div className="font-bold text-gray-900 dark:text-white">
+                                {item.name}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-3 mt-0.5">
+                                <span>Quantity: <strong className="text-gray-700 dark:text-gray-200">{item.quantity}</strong></span>
+                                {item.weight && <span>Weight: <strong className="text-gray-700 dark:text-gray-200">{item.weight}</strong></span>}
+                              </div>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="font-black text-gray-900 dark:text-white text-sm">
+                                Rs. {itemPrice.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {selectedOrder.products && selectedOrder.sellerItems && selectedOrder.products.length > selectedOrder.sellerItems.length && (
+                      <div className="bg-white dark:bg-gray-750 p-2.5 rounded-xl text-xs text-gray-500 border border-gray-200/60 dark:border-gray-700 flex items-center justify-between">
+                        <span>+ {selectedOrder.products.length - selectedOrder.sellerItems.length} other items in customer order</span>
+                        <span className="text-[11px] text-gray-400 font-semibold">Assigned to other sellers</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ORDER SUMMARY */}
+                  <div className="bg-orange-50/50 dark:bg-orange-950/20 rounded-2xl p-4 md:p-5 border border-orange-100 dark:border-orange-900/40 space-y-2.5">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-agri-orange flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" />
+                      <span>Order Summary</span>
+                    </h4>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
+                      <div>
+                        <span className="text-gray-400 block font-medium">Total Amount</span>
+                        <span className="font-black text-agri-orange text-base">
+                          Rs. {(selectedOrder.sellerTotal || selectedOrder.orderSummary?.total || 0).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-gray-400 block font-medium">Payment Method</span>
+                        <span className="font-bold text-gray-900 dark:text-white">
+                          {selectedOrder.paymentMethod || 'Cash On Delivery'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-gray-400 block font-medium">Order Date</span>
+                        <span className="font-semibold text-gray-800 dark:text-gray-200">
+                          {formatOrderDate(selectedOrder.orderDate, selectedOrder.orderTime)}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-gray-400 block font-medium">Order Status</span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold mt-0.5 ${
+                          getNormalizedStatus(selectedOrder) === 'Delivered'
+                            ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                            : getNormalizedStatus(selectedOrder) === 'Preparing'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+                            : getNormalizedStatus(selectedOrder) === 'On The Way'
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                            : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                        }`}>
+                          {getNormalizedStatus(selectedOrder)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* CONTACT BUTTONS */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Contact Customer
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* WhatsApp Button */}
+                      {(() => {
+                        const whatsappNum = formatWhatsAppNumber(selectedOrder.customerInfo?.whatsapp || selectedOrder.customerInfo?.phone || '');
+                        const custName = selectedOrder.customerInfo?.name || 'Customer';
+                        const orderNum = selectedOrder.orderNumber || selectedOrder.id.slice(0, 8).toUpperCase();
+                        const message = `Assalam o Alaikum ${custName}!\nMain AgriConnect seller hoon.\nAapka order ${orderNum}\nprocess ho raha hai.`;
+                        const waHref = `https://wa.me/${whatsappNum}?text=${encodeURIComponent(message)}`;
+
+                        return (
+                          <a
+                            href={waHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            <span>WhatsApp Customer</span>
+                          </a>
+                        );
+                      })()}
+
+                      {/* Call Button */}
+                      {(() => {
+                        const callPhone = (selectedOrder.customerInfo?.phone || selectedOrder.customerInfo?.whatsapp || '').replace(/\s+/g, '');
+                        return (
+                          <a
+                            href={`tel:${callPhone}`}
+                            className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 transition-all"
+                          >
+                            <Phone className="w-4 h-4" />
+                            <span>Call Customer</span>
+                          </a>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* ORDER STATUS UPDATE */}
+                  <div className="bg-gray-50/80 dark:bg-gray-800/60 rounded-2xl p-4 md:p-5 border border-gray-200/70 dark:border-gray-700/70 space-y-3">
+                    <label className="block text-xs font-black uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Update Order Status (Save to Firebase)
+                    </label>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                      <select
+                        value={modalStatusInput}
+                        onChange={(e) => setModalStatusInput(e.target.value as any)}
+                        className="flex-1 py-3 px-4 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 font-bold text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-agri-orange focus:outline-none"
+                      >
+                        <option value="Received">Received</option>
+                        <option value="Preparing">Preparing</option>
+                        <option value="On The Way">On The Way</option>
+                        <option value="Delivered">Delivered</option>
+                      </select>
+
+                      <button
+                        onClick={async () => {
+                          if (selectedOrder) {
+                            await handleUpdateOrderStatus(selectedOrder.id, modalStatusInput);
+                          }
+                        }}
+                        disabled={isUpdatingStatus}
+                        className="bg-agri-orange hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {isUpdatingStatus ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <CheckCircle className="w-4 h-4" />
+                        )}
+                        <span>Save Status</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end pt-6 mt-6 border-t border-gray-100 dark:border-gray-800">
+                <button
+                  type="button"
+                  onClick={handleCloseOrderDetails}
+                  className="px-6 py-2.5 rounded-xl text-gray-600 dark:text-gray-300 font-bold hover:bg-gray-100 dark:hover:bg-gray-800 text-sm"
+                >
+                  Close
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
