@@ -317,7 +317,7 @@ const SellerRegister = () => {
       address: "Mukammal Pata",
       addressPlaceholder: "Dukaan ya farm ka mukammal pata likhain",
       section3: "Aap Kia Bechna Chahte Hain",
-      productOptions: ['Sabziyaan', 'Phal', 'Dry Fruits', 'Anaaj', 'Beej', 'Khaad', 'Dairy Products', 'Dusri Cheezain'],
+      productOptions: ['Sabziyaan', 'Phal', 'Dry Fruits', 'Anaaj', 'Dusri Cheezain'],
       section4: "Delivery & Payment Maalumat",
       deliveryRange: "Delivery Range",
       rangeOptions: {
@@ -369,7 +369,7 @@ const SellerRegister = () => {
       address: "Complete Address",
       addressPlaceholder: "Enter complete shop or farm address",
       section3: "What Do You Want To Sell",
-      productOptions: ['Vegetables', 'Fruits', 'Dry Fruits', 'Grains', 'Seeds', 'Fertilizer', 'Dairy Products', 'Other Products'],
+      productOptions: ['Vegetables', 'Fruits', 'Dry Fruits', 'Grains', 'Other Products'],
       section4: "Delivery & Payment Information",
       deliveryRange: "Delivery Range",
       rangeOptions: {
